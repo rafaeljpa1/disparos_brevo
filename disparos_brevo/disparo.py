@@ -42,6 +42,23 @@ def _params_do_contato(contato: dict) -> dict:
     return {k: v for k, v in contato.items() if not k.startswith("_") and v}
 
 
+def contato_brevo_para_dict(contato_api: dict) -> dict:
+    """Converte um contato retornado pela API do Brevo para o formato interno.
+
+    Atributos (ESTADO, MUNICIPIO, NOME_ESCOLA...) viram chaves de topo,
+    como nas planilhas CSV.
+    """
+    atributos = contato_api.get("attributes", {}) or {}
+    contato = {
+        chave.upper(): str(valor).strip()
+        for chave, valor in atributos.items()
+        if valor is not None
+    }
+    contato["EMAIL"] = (contato_api.get("email") or "").strip().lower()
+    contato["_BLACKLISTED"] = bool(contato_api.get("emailBlacklisted"))
+    return contato
+
+
 # --------------------------------------------------------------------- e-mail
 
 def disparar_emails(
@@ -66,6 +83,8 @@ def disparar_emails(
                 "email": c["_DESTINO"],
                 "nome": c.get("NOME", ""),
                 "params": _params_do_contato(c),
+                # assunto personalizado por contato ({COLUNA} do CSV)
+                "assunto": personalizar(assunto, c) if assunto else None,
             }
             for c in grupo
         ]

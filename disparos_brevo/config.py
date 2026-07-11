@@ -20,6 +20,12 @@ class Config:
     sms_remetente: str
     whatsapp_remetente: str
     url_base: str = URL_BASE_PADRAO
+    # Disparos regionais (PNLD)
+    link_lp_nacional: str = ""
+    link_lp_regional: str = ""
+    editora_endereco: str = ""
+    editora_cnpj: str = ""
+    editora_dominio: str = ""
 
 
 def carregar_config() -> Config:
@@ -44,4 +50,9 @@ def carregar_config() -> Config:
         sms_remetente=os.environ.get("SMS_REMETENTE", "").strip(),
         whatsapp_remetente=os.environ.get("WHATSAPP_REMETENTE", "").strip(),
         url_base=os.environ.get("BREVO_URL_BASE", URL_BASE_PADRAO).strip(),
+        link_lp_nacional=os.environ.get("LINK_LP_NACIONAL", "").strip(),
+        link_lp_regional=os.environ.get("LINK_LP_REGIONAL", "").strip(),
+        editora_endereco=os.environ.get("EDITORA_ENDERECO", "").strip(),
+        editora_cnpj=os.environ.get("EDITORA_CNPJ", "").strip(),
+        editora_dominio=os.environ.get("EDITORA_DOMINIO", "").strip(),
     )

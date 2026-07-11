@@ -54,7 +54,13 @@ class BrevoClient:
         if falta > 0:
             time.sleep(falta)
 
-    def _requisitar(self, metodo: str, caminho: str, json: dict | None = None) -> dict:
+    def _requisitar(
+        self,
+        metodo: str,
+        caminho: str,
+        json: dict | None = None,
+        params: dict | None = None,
+    ) -> dict:
         url = f"{self.url_base}{caminho}"
         ultima_excecao: Exception | None = None
 
@@ -62,7 +68,7 @@ class BrevoClient:
             self._aguardar_intervalo()
             try:
                 resposta = self._sessao.request(
-                    metodo, url, json=json, timeout=self.timeout
+                    metodo, url, json=json, params=params, timeout=self.timeout
                 )
             except requests.RequestException as exc:
                 ultima_excecao = exc
@@ -99,6 +105,29 @@ class BrevoClient:
         """GET /account — dados da conta, plano e créditos."""
         return self._requisitar("GET", "/account")
 
+    # --------------------------------------------------------------- contatos
+
+    def contatos_da_lista(self, lista_id: int, por_pagina: int = 500) -> list[dict]:
+        """GET /contacts/lists/{id}/contacts — busca TODOS os contatos da lista.
+
+        Percorre as páginas (máx. 500 por requisição) e retorna a lista
+        completa de contatos como retornados pela API do Brevo.
+        """
+        contatos: list[dict] = []
+        offset = 0
+        while True:
+            resposta = self._requisitar(
+                "GET",
+                f"/contacts/lists/{lista_id}/contacts",
+                params={"limit": por_pagina, "offset": offset, "sort": "asc"},
+            )
+            pagina = resposta.get("contacts", [])
+            contatos.extend(pagina)
+            offset += len(pagina)
+            if len(pagina) < por_pagina or offset >= resposta.get("count", 0):
+                break
+        return contatos
+
     # ----------------------------------------------------------------- e-mail
 
     def enviar_email_lote(
@@ -112,9 +141,10 @@ class BrevoClient:
     ) -> dict:
         """POST /smtp/email — envio transacional em lote via messageVersions.
 
-        ``destinatarios``: lista de dicts ``{"email": ..., "nome": ..., "params": {...}}``.
-        Cada destinatário vira uma messageVersion com seus próprios params,
-        permitindo personalizar com ``{{params.COLUNA}}`` no HTML.
+        ``destinatarios``: lista de dicts ``{"email": ..., "nome": ...,
+        "params": {...}, "assunto": ...}``. Cada destinatário vira uma
+        messageVersion com seus próprios params (personalização via
+        ``{{params.COLUNA}}`` no HTML) e, se presente, assunto próprio.
         Informe ``html`` + ``assunto`` OU ``template_id`` (template do Brevo).
         """
         if not destinatarios:
@@ -130,6 +160,8 @@ class BrevoClient:
             versao: dict = {"to": [to]}
             if dest.get("params"):
                 versao["params"] = dest["params"]
+            if dest.get("assunto"):
+                versao["subject"] = dest["assunto"]
             versoes.append(versao)
 
         corpo: dict = {"sender": remetente, "messageVersions": versoes}
