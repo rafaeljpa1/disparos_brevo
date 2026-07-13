@@ -10,15 +10,17 @@ TEMPLATE_BASE = """<!DOCTYPE html>
 <body>
 <!-- comentário com instruções {{...}} e [SUBSTITUIR] -->
 <!--[if mso]><table><tr><td><![endif]-->
-<span style="font-family:'Poppins',Arial; font-size:22px; font-weight:700; color:#1E3F58;">
-  Casa de Letras
-</span>
+<table cellpadding="0" cellspacing="0" align="center" class="logo-topo">
+<tr><td style="background-color:#1E3F58; border-radius:14px; padding:12px 18px;">
+<a href="{{link_site}}" target="_blank" style="text-decoration:none;"><img src="{{logo_editora}}" width="64" alt="Casa de Letras" style="border:0;"></a>
+</td></tr>
+</table>
 <p>Olá, equipe da {{nome_escola}}! Escolas de {{uf}}, região {{regiao}}.</p>
 <a href="{{link_lp_nacional}}">Nacional</a>
 <a href="{{link_lp_regional}}">Regional</a>
 <img src="data:image/jpeg;base64,AAAA" alt="Capa do livro Conheça o Brasil — Região Sul" />
 <img src="data:image/jpeg;base64,BBBB" alt="Coleção Arte" />
-<footer><a href="{{link_site}}" target="_blank" style="text-decoration:none;"><img src="{{logo_rodape}}" width="84" alt="Casa de Letras" style="border:0;"></a><br>
+<footer><a href="{{link_site}}" target="_blank" style="text-decoration:none;"><img src="{{logo_editora}}" width="84" alt="Casa de Letras" style="border:0;"></a><br>
 [ENDEREÇO FÍSICO COMPLETO] &middot; CNPJ [00.000.000/0000-00]<br>
 <a href="mailto:contato@novidades.[DOMINIO].com.br">contato@novidades.[DOMINIO].com.br</a></footer>
 <a href="{{ unsubscribe }}">Descadastrar</a> &middot; <a href="#">Política de privacidade</a>
@@ -156,31 +158,38 @@ def test_linha_institucional_na_ordem_do_site(pasta):
     assert montado.impedimentos == []
 
 
-def test_logo_com_link_para_o_site(pasta):
+def test_texto_reserva_do_topo_com_link_para_o_site(pasta):
     import re
 
-    montado = montar_template(pasta, "sul", EDITORA_COMPLETA)
+    # sem URL de logo, mas com link do site: o texto de reserva vira link
+    editora = DadosEditora(
+        endereco="x", cnpj="y", dominio="z", link_site="https://casadeletras.com.br/"
+    )
+    montado = montar_template(pasta, "sul", editora)
     assert re.search(
-        r'<a href="https://casadeletras\.com\.br/" target="_blank"[^>]*>\s*'
-        r"<span[^>]*>\s*Casa de Letras\s*</span></a>",
+        r'<a href="https://casadeletras\.com\.br/" target="_blank"[^>]*>'
+        r"<span[^>]*>Casa de Letras</span></a>",
         montado.html,
     )
 
 
-def test_logo_do_rodape_preenchido(pasta):
+def test_logo_preenchido_no_topo_e_no_rodape(pasta):
     montado = montar_template(pasta, "sul", EDITORA_COMPLETA)
-    assert 'src="https://casadeletras.com.br/logo.png"' in montado.html
+    assert montado.html.count('src="https://casadeletras.com.br/logo.png"') == 2
+    assert 'class="logo-topo"' in montado.html
     assert '<a href="https://casadeletras.com.br/" target="_blank"' in montado.html
-    assert "{{logo_rodape}}" not in montado.html
+    assert "{{logo_editora}}" not in montado.html
     assert "{{link_site}}" not in montado.html
 
 
-def test_rodape_sem_logo_quando_nao_configurado(pasta):
+def test_sem_logo_topo_vira_texto_e_rodape_remove(pasta):
     montado = montar_template(pasta, "sul", EDITORA)
     assert 'alt="Casa de Letras"' not in montado.html
-    assert "{{logo_rodape}}" not in montado.html
+    assert 'class="logo-topo"' not in montado.html
+    assert ">Casa de Letras</span>" in montado.html  # texto de reserva no topo
+    assert "{{logo_editora}}" not in montado.html
     assert "{{link_site}}" not in montado.html
-    assert any("LOGO_RODAPE_URL" in aviso for aviso in montado.avisos)
+    assert any("LOGO_URL" in aviso for aviso in montado.avisos)
 
 
 def test_logo_sem_link_quando_nao_configurado(pasta):

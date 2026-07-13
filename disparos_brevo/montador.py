@@ -73,7 +73,15 @@ _RE_LOGO = re.compile(
 
 # bloco do logo no rodapé (removido inteiro quando não há URL de logo)
 _RE_BLOCO_LOGO = re.compile(
-    r'<a href="\{\{link_site\}\}"[^>]*>\s*<img src="\{\{logo_rodape\}\}"[^>]*>\s*</a>'
+    r'<a href="\{\{link_site\}\}"[^>]*>\s*<img src="\{\{logo_editora\}\}"[^>]*>\s*</a>'
+)
+
+# chip azul do topo com o logo; sem URL de logo, volta o texto original
+_RE_CHIP_LOGO_TOPO = re.compile(r'<table[^>]*class="logo-topo".*?</table>', re.S)
+_SPAN_LOGO_TEXTO = (
+    "<span style=\"font-family:'Poppins',Arial,Helvetica,sans-serif; "
+    'font-size:22px; font-weight:700; letter-spacing:-.01em; '
+    'color:#1E3F58;">Casa de Letras</span>'
 )
 
 
@@ -169,24 +177,28 @@ def montar_template(
             f"&middot; {editora.endereco}",
             html,
         )
+    # logo (topo e rodapé): com URL definida preenche os slots; sem URL, o
+    # chip do topo volta a ser o texto "Casa de Letras" e o bloco do rodapé
+    # é removido — nunca fica imagem quebrada
+    if editora.logo_url:
+        html = html.replace("{{logo_editora}}", editora.logo_url)
+    elif "{{logo_editora}}" in html:
+        html = _RE_CHIP_LOGO_TOPO.sub(_SPAN_LOGO_TEXTO, html)
+        html = _RE_BLOCO_LOGO.sub("", html)
+        avisos.append(
+            "Logo sem URL (LOGO_URL) — topo voltou ao texto e o logo do "
+            "rodapé foi removido"
+        )
+    html = html.replace(
+        "{{link_site}}", editora.link_site or "https://casadeletras.com.br/"
+    )
     if editora.link_site:
+        # logo textual do topo (original ou texto de reserva) vira link
         html = _RE_LOGO.sub(
             rf'<a href="{editora.link_site}" target="_blank" '
             r'style="text-decoration:none;">\1</a>',
             html,
         )
-    # logo do rodapé: com URL definida preenche o slot; sem URL remove o
-    # bloco inteiro para não deixar imagem quebrada
-    if editora.logo_url:
-        html = html.replace("{{logo_rodape}}", editora.logo_url)
-    elif "{{logo_rodape}}" in html:
-        html = _RE_BLOCO_LOGO.sub("", html)
-        avisos.append(
-            "Logo do rodapé sem URL (LOGO_RODAPE_URL) — bloco do logo removido"
-        )
-    html = html.replace(
-        "{{link_site}}", editora.link_site or "https://casadeletras.com.br/"
-    )
     if editora.endereco:
         html = html.replace("[ENDEREÇO FÍSICO COMPLETO]", editora.endereco)
         html = html.replace("[ENDEREÇO FÍSICO]", editora.endereco)

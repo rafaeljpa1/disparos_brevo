@@ -189,7 +189,7 @@ def _editora_da_config(config) -> DadosEditora:
         link_privacidade=config.link_politica_privacidade,
         razao_social=config.editora_razao_social,
         link_site=config.link_site,
-        logo_url=config.logo_rodape_url,
+        logo_url=config.logo_url,
     )
 
 
