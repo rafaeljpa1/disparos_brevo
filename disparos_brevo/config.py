@@ -30,16 +30,17 @@ class Config:
     link_politica_privacidade: str = ""
 
 
-def carregar_config() -> Config:
+def carregar_config(exigir_api_key: bool = True) -> Config:
     """Lê o .env (se existir) e monta a configuração do projeto.
 
-    Somente BREVO_API_KEY é obrigatória; as demais variáveis têm padrão
-    vazio e são validadas no momento do uso de cada canal.
+    Somente BREVO_API_KEY é obrigatória (dispensável para comandos que não
+    falam com a API, ex.: previa); as demais variáveis têm padrão vazio e
+    são validadas no momento do uso de cada canal.
     """
     load_dotenv()
 
     api_key = os.environ.get("BREVO_API_KEY", "").strip()
-    if not api_key:
+    if not api_key and exigir_api_key:
         raise ErroDeConfiguracao(
             "BREVO_API_KEY não definida. Copie .env.example para .env e "
             "preencha a chave de API (Brevo > Settings > SMTP & API > API Keys)."

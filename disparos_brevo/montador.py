@@ -200,3 +200,30 @@ def montar_template(
 
 def slug_da_regiao(regiao: str) -> str:
     return SLUG_POR_REGIAO[regiao]
+
+
+# UF representativa de cada região, usada nas prévias
+UF_EXEMPLO = {
+    "norte": "PA",
+    "nordeste": "BA",
+    "centro-oeste": "GO",
+    "sudeste": "SP",
+    "sul": "PR",
+}
+
+
+def aplicar_dados_de_exemplo(
+    html: str,
+    slug_regiao: str,
+    nome_escola: str = "Escola Municipal Monteiro Lobato",
+) -> str:
+    """Preenche o HTML montado com dados fictícios para prévia no navegador.
+
+    No envio real, ``{{params.*}}`` é preenchido pelo Brevo por contato e
+    ``{{ unsubscribe }}`` vira o link de descadastro; na prévia, entram
+    valores de exemplo para o e-mail poder ser aberto num visualizador.
+    """
+    html = html.replace("{{params.NOME_ESCOLA}}", nome_escola)
+    html = html.replace("{{params.UF}}", UF_EXEMPLO.get(slug_regiao, "UF"))
+    html = html.replace("{{ unsubscribe }}", "#exemplo-link-de-descadastro-do-brevo")
+    return html

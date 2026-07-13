@@ -132,6 +132,18 @@ def test_troca_imagens_por_urls_hospedadas(pasta):
     assert not any("base64" in aviso for aviso in montado.avisos)
 
 
+def test_aplicar_dados_de_exemplo(pasta):
+    from disparos_brevo.montador import aplicar_dados_de_exemplo
+
+    montado = montar_template(pasta, "sul", EDITORA)
+    previa = aplicar_dados_de_exemplo(montado.html, "sul")
+    assert "{{params.NOME_ESCOLA}}" not in previa
+    assert "{{params.UF}}" not in previa
+    assert "{{ unsubscribe }}" not in previa
+    assert "Escola Municipal Monteiro Lobato" in previa
+    assert "PR" in previa
+
+
 def test_regiao_desconhecida(pasta):
     with pytest.raises(ValueError):
         montar_template(pasta, "atlantida", EDITORA)

@@ -217,7 +217,8 @@ __marimo__/
 # Streamlit
 .streamlit/secrets.toml
 
-# Disparos Brevo: relatórios de envio e planilhas reais de contatos
+# Disparos Brevo: relatórios de envio, prévias e planilhas reais de contatos
 relatorios/
+previas/
 data/*.csv
 !data/contatos.exemplo.csv
