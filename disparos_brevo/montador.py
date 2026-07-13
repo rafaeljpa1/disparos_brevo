@@ -49,6 +49,12 @@ class DadosEditora:
     endereco: str = ""
     cnpj: str = ""
     dominio: str = ""
+    email_contato: str = ""
+    link_privacidade: str = ""
+
+
+# e-mail fictício que veio no rodapé dos templates
+_EMAIL_MODELO = "contato@novidades.[DOMINIO].com.br"
 
 
 @dataclass
@@ -118,7 +124,10 @@ def montar_template(
     html = caminho.read_text(encoding="utf-8")
     html = _RE_COMENTARIO.sub("", html)
 
-    link_regional = link_regional or link_nacional
+    # "{regiao}" nos links vira o slug (ex.: .../pnld-2027-{regiao}/ →
+    # .../pnld-2027-norte/), permitindo uma landing page por região
+    link_nacional = link_nacional.replace("{regiao}", slug_regiao)
+    link_regional = (link_regional or link_nacional).replace("{regiao}", slug_regiao)
     html = html.replace("{{nome_escola}}", "{{params.NOME_ESCOLA}}")
     html = html.replace("{{uf}}", "{{params.UF}}")
     html = html.replace("{{regiao}}", regiao)
@@ -138,13 +147,25 @@ def montar_template(
         html = html.replace("[CNPJ]", editora.cnpj)
         # variante usada nos templates reais: CNPJ-modelo entre colchetes
         html = html.replace("[00.000.000/0000-00]", editora.cnpj)
+    if editora.email_contato:
+        # troca o e-mail fictício inteiro (mailto: e texto exibido)
+        html = html.replace(_EMAIL_MODELO, editora.email_contato)
     if editora.dominio:
         html = html.replace("[DOMINIO]", editora.dominio)
+    if editora.link_privacidade:
+        # único href="#" do template é o da Política de privacidade
+        html = html.replace('href="#"', f'href="{editora.link_privacidade}"')
 
     html = _trocar_imagens(html, slug_regiao, carregar_mapa_imagens(pasta))
 
     avisos: list[str] = []
     impedimentos: list[str] = []
+
+    if 'href="#"' in html:
+        avisos.append(
+            'Link "Política de privacidade" do rodapé sem destino (href="#") — '
+            "defina LINK_POLITICA_PRIVACIDADE no .env"
+        )
 
     pendentes = sorted(
         set(
@@ -157,7 +178,8 @@ def montar_template(
         impedimentos.append(
             "Rodapé incompleto (obrigatório em e-mail marketing): "
             + ", ".join(f"[{p}]" for p in pendentes)
-            + " — defina EDITORA_ENDERECO, EDITORA_CNPJ e EDITORA_DOMINIO no .env"
+            + " — defina EDITORA_ENDERECO, EDITORA_CNPJ e "
+            "EDITORA_EMAIL_CONTATO no .env"
         )
 
     sobras = sorted(set(re.findall(r"\{\{\s*link_[a-z_]+\s*\}\}", html)))

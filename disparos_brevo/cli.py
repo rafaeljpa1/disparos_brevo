@@ -212,6 +212,8 @@ def _comando_email_regional(args, config) -> int:
         endereco=config.editora_endereco,
         cnpj=config.editora_cnpj,
         dominio=config.editora_dominio,
+        email_contato=config.editora_email_contato,
+        link_privacidade=config.link_politica_privacidade,
     )
     link_nacional = config.link_lp_nacional or LINK_LP_PADRAO
     link_regional = config.link_lp_regional or link_nacional

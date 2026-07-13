@@ -26,6 +26,8 @@ class Config:
     editora_endereco: str = ""
     editora_cnpj: str = ""
     editora_dominio: str = ""
+    editora_email_contato: str = ""
+    link_politica_privacidade: str = ""
 
 
 def carregar_config() -> Config:
@@ -55,4 +57,6 @@ def carregar_config() -> Config:
         editora_endereco=os.environ.get("EDITORA_ENDERECO", "").strip(),
         editora_cnpj=os.environ.get("EDITORA_CNPJ", "").strip(),
         editora_dominio=os.environ.get("EDITORA_DOMINIO", "").strip(),
+        editora_email_contato=os.environ.get("EDITORA_EMAIL_CONTATO", "").strip(),
+        link_politica_privacidade=os.environ.get("LINK_POLITICA_PRIVACIDADE", "").strip(),
     )

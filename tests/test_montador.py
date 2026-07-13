@@ -15,8 +15,9 @@ TEMPLATE_BASE = """<!DOCTYPE html>
 <a href="{{link_lp_regional}}">Regional</a>
 <img src="data:image/jpeg;base64,AAAA" alt="Capa do livro Conheça o Brasil — Região Sul" />
 <img src="data:image/jpeg;base64,BBBB" alt="Coleção Arte" />
-<footer>[ENDEREÇO FÍSICO] — CNPJ [00.000.000/0000-00] — contato@novidades.[DOMINIO].com.br</footer>
-<a href="{{ unsubscribe }}">Descadastrar</a>
+<footer>[ENDEREÇO FÍSICO] — CNPJ [00.000.000/0000-00] —
+<a href="mailto:contato@novidades.[DOMINIO].com.br">contato@novidades.[DOMINIO].com.br</a></footer>
+<a href="{{ unsubscribe }}">Descadastrar</a> &middot; <a href="#">Política de privacidade</a>
 <!--[if mso]></td></tr></table><![endif]-->
 </body></html>
 """
@@ -63,6 +64,40 @@ def test_dados_da_editora_no_rodape(pasta):
     assert "contato@novidades.casadeletras.com.br" in montado.html
 
 
+def test_email_de_contato_real_no_rodape(pasta):
+    editora = DadosEditora(
+        endereco="Rua X", cnpj="11.222.333/0001-44",
+        email_contato="comercial@casadeletras.com.br",
+    )
+    montado = montar_template(pasta, "sul", editora)
+    assert "contato@novidades" not in montado.html
+    assert 'href="mailto:comercial@casadeletras.com.br"' in montado.html
+    assert montado.impedimentos == []  # e-mail real dispensa [DOMINIO]
+
+
+def test_link_de_privacidade(pasta):
+    sem_link = montar_template(pasta, "sul", EDITORA)
+    assert any("privacidade" in a for a in sem_link.avisos)
+
+    com_link = montar_template(
+        pasta, "sul",
+        DadosEditora(endereco="x", cnpj="y", dominio="z",
+                     link_privacidade="https://casadeletras.com.br/privacidade/"),
+    )
+    assert 'href="https://casadeletras.com.br/privacidade/"' in com_link.html
+    assert not any("privacidade" in a for a in com_link.avisos)
+
+
+def test_links_com_padrao_regiao(pasta):
+    montado = montar_template(
+        pasta, "sul", EDITORA,
+        link_nacional="https://casadeletras.com.br/pnld-2027/",
+        link_regional="https://casadeletras.com.br/pnld-2027-{regiao}/",
+    )
+    assert 'href="https://casadeletras.com.br/pnld-2027-sul/"' in montado.html
+    assert 'href="https://casadeletras.com.br/pnld-2027/"' in montado.html
+
+
 def test_rodape_incompleto_gera_impedimento(pasta):
     montado = montar_template(pasta, "sul", DadosEditora())
     assert len(montado.impedimentos) == 1
@@ -94,7 +129,7 @@ def test_troca_imagens_por_urls_hospedadas(pasta):
     assert 'src="https://img.brevo.com/capa-sul.jpg"' in montado.html
     assert 'src="https://img.brevo.com/arte.jpg"' in montado.html
     assert "data:image" not in montado.html
-    assert montado.avisos == []
+    assert not any("base64" in aviso for aviso in montado.avisos)
 
 
 def test_regiao_desconhecida(pasta):
