@@ -28,6 +28,8 @@ class Config:
     editora_dominio: str = ""
     editora_email_contato: str = ""
     link_politica_privacidade: str = ""
+    editora_razao_social: str = ""
+    link_site: str = ""
 
 
 def carregar_config(exigir_api_key: bool = True) -> Config:
@@ -60,4 +62,6 @@ def carregar_config(exigir_api_key: bool = True) -> Config:
         editora_dominio=os.environ.get("EDITORA_DOMINIO", "").strip(),
         editora_email_contato=os.environ.get("EDITORA_EMAIL_CONTATO", "").strip(),
         link_politica_privacidade=os.environ.get("LINK_POLITICA_PRIVACIDADE", "").strip(),
+        editora_razao_social=os.environ.get("EDITORA_RAZAO_SOCIAL", "").strip(),
+        link_site=os.environ.get("LINK_SITE", "").strip(),
     )

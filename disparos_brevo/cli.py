@@ -180,14 +180,20 @@ def _comando_email(args, config) -> int:
     return _finalizar(resultados, args.confirmar)
 
 
-def _comando_previa(args, config) -> int:
-    editora = DadosEditora(
+def _editora_da_config(config) -> DadosEditora:
+    return DadosEditora(
         endereco=config.editora_endereco,
         cnpj=config.editora_cnpj,
         dominio=config.editora_dominio,
         email_contato=config.editora_email_contato,
         link_privacidade=config.link_politica_privacidade,
+        razao_social=config.editora_razao_social,
+        link_site=config.link_site,
     )
+
+
+def _comando_previa(args, config) -> int:
+    editora = _editora_da_config(config)
     link_nacional = config.link_lp_nacional or LINK_LP_PADRAO
     link_regional = config.link_lp_regional or link_nacional
 
@@ -263,13 +269,7 @@ def _comando_email_regional(args, config) -> int:
     for regiao in sorted(por_regiao):
         print(f"  {regiao}: {len(por_regiao[regiao])} contatos")
 
-    editora = DadosEditora(
-        endereco=config.editora_endereco,
-        cnpj=config.editora_cnpj,
-        dominio=config.editora_dominio,
-        email_contato=config.editora_email_contato,
-        link_privacidade=config.link_politica_privacidade,
-    )
+    editora = _editora_da_config(config)
     link_nacional = config.link_lp_nacional or LINK_LP_PADRAO
     link_regional = config.link_lp_regional or link_nacional
 

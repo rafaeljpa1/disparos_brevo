@@ -51,10 +51,24 @@ class DadosEditora:
     dominio: str = ""
     email_contato: str = ""
     link_privacidade: str = ""
+    razao_social: str = ""
+    link_site: str = ""
 
 
 # e-mail fictício que veio no rodapé dos templates
 _EMAIL_MODELO = "contato@novidades.[DOMINIO].com.br"
+
+# linha institucional do rodapé como veio nos templates (endereço · CNPJ);
+# com razão social definida, é reescrita na ordem do rodapé do site:
+# razão social · CNPJ · endereço
+_RE_LINHA_RODAPE = re.compile(
+    r"\[ENDEREÇO FÍSICO COMPLETO\]\s*&middot;\s*CNPJ\s*\[00\.000\.000/0000-00\]"
+)
+
+# logo textual do topo ("Casa de Letras"), sem link no template original
+_RE_LOGO = re.compile(
+    r'(<span style="[^"]*font-size:22px[^"]*">\s*Casa de Letras\s*</span>)'
+)
 
 
 @dataclass
@@ -140,6 +154,18 @@ def montar_template(
         _com_utm(link_regional, utm_campanha, f"{slug_regiao}-regional"),
     )
 
+    if editora.razao_social and editora.cnpj and editora.endereco:
+        html = _RE_LINHA_RODAPE.sub(
+            f"{editora.razao_social} &middot; CNPJ {editora.cnpj} "
+            f"&middot; {editora.endereco}",
+            html,
+        )
+    if editora.link_site:
+        html = _RE_LOGO.sub(
+            rf'<a href="{editora.link_site}" target="_blank" '
+            r'style="text-decoration:none;">\1</a>',
+            html,
+        )
     if editora.endereco:
         html = html.replace("[ENDEREÇO FÍSICO COMPLETO]", editora.endereco)
         html = html.replace("[ENDEREÇO FÍSICO]", editora.endereco)
