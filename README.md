@@ -98,6 +98,58 @@ python -m disparos_brevo email \
   painel do Brevo.
 - `--lote` controla quantos destinatários vão por chamada de API (padrão 100).
 
+### E-mail regional (PNLD 2027)
+
+Dispara o template certo para cada contato conforme a **região** da UF do
+contato (atributo `ESTADO` no Brevo ou coluna `ESTADO` no CSV):
+
+| Região       | UFs                                | Template                                 |
+| ------------ | ---------------------------------- | ---------------------------------------- |
+| Norte        | AC AP AM PA RO RR TO               | `templates/pnld2027/email01/norte.html`  |
+| Nordeste     | AL BA CE MA PB PE PI RN SE         | `.../nordeste.html`                      |
+| Centro-Oeste | DF GO MT MS                        | `.../centro-oeste.html`                  |
+| Sudeste      | ES MG RJ SP                        | `.../sudeste.html`                       |
+| Sul          | PR RS SC                           | `.../sul.html`                           |
+
+```bash
+# Simulação usando a lista PNLD do Brevo (id 3)
+python -m disparos_brevo email-regional \
+  --lista-id 3 \
+  --assunto "Material aprovado no PNLD 2027 para os Anos Iniciais"
+
+# Teste real pequeno: só Sul, 3 contatos por região
+python -m disparos_brevo email-regional \
+  --lista-id 3 --regiao sul --limite 3 \
+  --assunto "Material aprovado no PNLD 2027 para os Anos Iniciais" \
+  --confirmar
+```
+
+Antes do envio, cada template é montado automaticamente:
+
+- `{{nome_escola}}` e `{{uf}}` viram personalização por contato (escolas sem
+  nome cadastrado recebem "sua escola");
+- `{{regiao}}` vira o nome da região;
+- `{{link_lp_nacional}}` / `{{link_lp_regional}}` viram os links das landing
+  pages (`LINK_LP_NACIONAL` e `LINK_LP_REGIONAL` no `.env`) com UTM por
+  região (`utm_content=sul-nacional` etc.). No link regional, `{regiao}` é
+  trocado pelo slug: `https://casadeletras.com.br/pnld-2027-{regiao}/` →
+  `.../pnld-2027-norte/`;
+- o rodapé espelha o do site da editora: endereço físico, CNPJ e e-mail de
+  contato vêm de `EDITORA_ENDERECO`, `EDITORA_CNPJ` e
+  `EDITORA_EMAIL_CONTATO` (o `.env.example` já traz os dados públicos da
+  Casa de Letras Editora e Gráfica Ltda — confira com o site antes do
+  disparo). O envio real é **bloqueado** enquanto estiverem vazios
+  (exigência anti-spam). O link "Política de privacidade" usa
+  `LINK_POLITICA_PRIVACIDADE`;
+- contatos descadastrados/bloqueados no Brevo são pulados;
+- `{{ unsubscribe }}` é mantido para o Brevo gerar o link de descadastro.
+
+**Imagens**: os templates vieram com imagens embutidas em base64 (~600 KB
+por e-mail — Gmail e Outlook cortam/bloqueiam). As imagens estão extraídas
+em `templates/pnld2027/email01/imagens/`; suba-as na galeria do Brevo, copie
+as URLs para `imagens.json` (use `imagens.exemplo.json` como base) e o
+montador troca automaticamente, reduzindo o e-mail para ~30 KB.
+
 ### SMS
 
 ```bash

@@ -19,10 +19,11 @@ from pathlib import Path
 
 from .brevo_client import BrevoClient
 from .config import ErroDeConfiguracao, carregar_config
-from .contatos import carregar_contatos, filtrar_por_canal
+from .contatos import carregar_contatos, email_valido, filtrar_por_canal
 from .disparo import (
     LOTE_EMAIL_PADRAO,
     LOTE_WHATSAPP_PADRAO,
+    contato_brevo_para_dict,
     disparar_emails,
     disparar_sms,
     disparar_whatsapp,
@@ -30,6 +31,8 @@ from .disparo import (
     resumo,
     salvar_relatorio,
 )
+from .montador import LINK_LP_PADRAO, DadosEditora, montar_template
+from .regioes import SLUG_POR_REGIAO, agrupar_por_regiao
 
 
 def _criar_parser() -> argparse.ArgumentParser:
@@ -59,6 +62,22 @@ def _criar_parser() -> argparse.ArgumentParser:
     p_email.add_argument("--remetente-nome", default=None)
     p_email.add_argument("--remetente-email", default=None)
     p_email.add_argument("--lote", type=int, default=LOTE_EMAIL_PADRAO, help=f"Destinatários por chamada (padrão {LOTE_EMAIL_PADRAO})")
+
+    p_reg = sub.add_parser(
+        "email-regional",
+        help="Disparo de e-mails com template por região (PNLD 2027)",
+    )
+    p_reg.add_argument("--lista-id", type=int, help="ID da lista de contatos no Brevo (ex.: 3 = PNLD)")
+    p_reg.add_argument("--contatos", help="Alternativa à lista do Brevo: CSV local com coluna ESTADO")
+    p_reg.add_argument("--templates", default="templates/pnld2027/email01", help="Pasta com <regiao>.html (norte, nordeste, centro-oeste, sudeste, sul)")
+    p_reg.add_argument("--assunto", required=True, help="Assunto (aceita {NOME_ESCOLA}, {UF}, {REGIAO}...)")
+    p_reg.add_argument("--regiao", choices=sorted(SLUG_POR_REGIAO.values()), help="Dispara só para uma região")
+    p_reg.add_argument("--limite", type=int, default=None, help="Envia só para os N primeiros contatos de cada região")
+    p_reg.add_argument("--tag", default="pnld2027-email01", help="Tag da campanha (rastreio no Brevo e UTM)")
+    p_reg.add_argument("--lote", type=int, default=LOTE_EMAIL_PADRAO)
+    p_reg.add_argument("--remetente-nome", default=None)
+    p_reg.add_argument("--remetente-email", default=None)
+    p_reg.add_argument("--confirmar", action="store_true", help="Envia de verdade (sem esta flag, apenas simula)")
 
     p_sms = sub.add_parser("sms", help="Disparo em massa de SMS")
     opcoes_comuns(p_sms)
@@ -147,6 +166,110 @@ def _comando_email(args, config) -> int:
     return _finalizar(resultados, args.confirmar)
 
 
+def _comando_email_regional(args, config) -> int:
+    if bool(args.lista_id) == bool(args.contatos):
+        print("Informe --lista-id OU --contatos (exatamente um dos dois).", file=sys.stderr)
+        return 2
+
+    remetente_email = args.remetente_email or config.remetente_email
+    if not remetente_email:
+        print("Defina REMETENTE_EMAIL no .env ou use --remetente-email.", file=sys.stderr)
+        return 2
+    remetente = {
+        "name": args.remetente_nome or config.remetente_nome or remetente_email,
+        "email": remetente_email,
+    }
+
+    # A conexão com o Brevo é necessária para buscar contatos da lista,
+    # mesmo em simulação; para CSV local, só conecta em envio real.
+    client = None
+    if args.lista_id or args.confirmar:
+        client = BrevoClient(config.api_key, config.url_base)
+
+    if args.lista_id:
+        print(f"Buscando contatos da lista {args.lista_id} no Brevo...")
+        brutos = client.contatos_da_lista(args.lista_id)
+        contatos = [contato_brevo_para_dict(c) for c in brutos]
+    else:
+        contatos = carregar_contatos(args.contatos)
+
+    bloqueados = [c for c in contatos if c.get("_BLACKLISTED")]
+    contatos = [c for c in contatos if not c.get("_BLACKLISTED")]
+    sem_email = [c for c in contatos if not email_valido(c.get("EMAIL", ""))]
+    contatos = [
+        {**c, "_DESTINO": c["EMAIL"].strip().lower()}
+        for c in contatos
+        if email_valido(c.get("EMAIL", ""))
+    ]
+
+    por_regiao, sem_regiao = agrupar_por_regiao(contatos)
+    print(f"Contatos: {len(contatos)} válidos | {len(bloqueados)} descadastrados/bloqueados | "
+          f"{len(sem_email)} sem e-mail válido | {len(sem_regiao)} sem UF reconhecida")
+    for regiao in sorted(por_regiao):
+        print(f"  {regiao}: {len(por_regiao[regiao])} contatos")
+
+    editora = DadosEditora(
+        endereco=config.editora_endereco,
+        cnpj=config.editora_cnpj,
+        dominio=config.editora_dominio,
+        email_contato=config.editora_email_contato,
+        link_privacidade=config.link_politica_privacidade,
+    )
+    link_nacional = config.link_lp_nacional or LINK_LP_PADRAO
+    link_regional = config.link_lp_regional or link_nacional
+
+    resultados = []
+    for regiao in sorted(por_regiao):
+        slug = SLUG_POR_REGIAO[regiao]
+        if args.regiao and slug != args.regiao:
+            continue
+        grupo = por_regiao[regiao]
+        if args.limite:
+            grupo = grupo[: args.limite]
+
+        montado = montar_template(
+            args.templates,
+            slug,
+            editora,
+            link_nacional=link_nacional,
+            link_regional=link_regional,
+            utm_campanha=args.tag or "",
+        )
+        for aviso in montado.avisos:
+            print(f"[{regiao}] AVISO: {aviso}")
+        if montado.impedimentos:
+            for impedimento in montado.impedimentos:
+                print(f"[{regiao}] PENDÊNCIA: {impedimento}", file=sys.stderr)
+            if args.confirmar:
+                print(f"[{regiao}] Envio real BLOQUEADO até resolver as pendências acima.", file=sys.stderr)
+                return 2
+
+        # escolas sem nome cadastrado recebem um tratamento genérico
+        grupo = [
+            {**c, "NOME_ESCOLA": c.get("NOME_ESCOLA") or "sua escola"}
+            for c in grupo
+        ]
+        print(f"[{regiao}] {'Enviando' if args.confirmar else 'Simulando'} "
+              f"{len(grupo)} e-mails ({len(montado.html) // 1024} KB por mensagem)...")
+        resultados.extend(
+            disparar_emails(
+                client,
+                grupo,
+                remetente=remetente,
+                assunto=args.assunto,
+                html=montado.html,
+                tag=args.tag,
+                lote=args.lote,
+                confirmar=args.confirmar,
+            )
+        )
+
+    if resultados and not args.confirmar:
+        exemplo = resultados[0].contato
+        print(f'Exemplo de assunto: "{personalizar(args.assunto, exemplo)}"')
+    return _finalizar(resultados, args.confirmar)
+
+
 def _comando_sms(args, config) -> int:
     remetente = args.remetente or config.sms_remetente
     if not remetente:
@@ -197,6 +320,8 @@ def main(argv: list[str] | None = None) -> int:
         return _comando_verificar(config)
     if args.comando == "email":
         return _comando_email(args, config)
+    if args.comando == "email-regional":
+        return _comando_email_regional(args, config)
     if args.comando == "sms":
         return _comando_sms(args, config)
     if args.comando == "whatsapp":
