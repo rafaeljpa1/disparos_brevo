@@ -71,9 +71,9 @@ _RE_LOGO = re.compile(
     r'(<span style="[^"]*font-size:22px[^"]*">\s*Casa de Letras\s*</span>)'
 )
 
-# título "Editora Casa de Letras" do rodapé — o logo do site entra acima dele
-_RE_TITULO_RODAPE = re.compile(
-    r"(<span[^>]*>\s*Editora Casa de Letras\s*</span>)"
+# bloco do logo no rodapé (removido inteiro quando não há URL de logo)
+_RE_BLOCO_LOGO = re.compile(
+    r'<a href="\{\{link_site\}\}"[^>]*>\s*<img src="\{\{logo_rodape\}\}"[^>]*>\s*</a>'
 )
 
 
@@ -144,6 +144,9 @@ def montar_template(
     html = caminho.read_text(encoding="utf-8")
     html = _RE_COMENTARIO.sub("", html)
 
+    avisos: list[str] = []
+    impedimentos: list[str] = []
+
     # "{regiao}" nos links vira o slug (ex.: .../pnld-2027-{regiao}/ →
     # .../pnld-2027-norte/), permitindo uma landing page por região
     link_nacional = link_nacional.replace("{regiao}", slug_regiao)
@@ -172,19 +175,18 @@ def montar_template(
             r'style="text-decoration:none;">\1</a>',
             html,
         )
+    # logo do rodapé: com URL definida preenche o slot; sem URL remove o
+    # bloco inteiro para não deixar imagem quebrada
     if editora.logo_url:
-        # logo do site acima do título do rodapé, clicável como na página
-        img = (
-            f'<img src="{editora.logo_url}" width="80" alt="Casa de Letras" '
-            'style="display:block; margin:0 auto 12px; width:80px; '
-            'height:auto; border:0;">'
+        html = html.replace("{{logo_rodape}}", editora.logo_url)
+    elif "{{logo_rodape}}" in html:
+        html = _RE_BLOCO_LOGO.sub("", html)
+        avisos.append(
+            "Logo do rodapé sem URL (LOGO_RODAPE_URL) — bloco do logo removido"
         )
-        if editora.link_site:
-            img = (
-                f'<a href="{editora.link_site}" target="_blank" '
-                f'style="text-decoration:none;">{img}</a>'
-            )
-        html = _RE_TITULO_RODAPE.sub(img + r"\1", html)
+    html = html.replace(
+        "{{link_site}}", editora.link_site or "https://casadeletras.com.br/"
+    )
     if editora.endereco:
         html = html.replace("[ENDEREÇO FÍSICO COMPLETO]", editora.endereco)
         html = html.replace("[ENDEREÇO FÍSICO]", editora.endereco)
@@ -202,9 +204,6 @@ def montar_template(
         html = html.replace('href="#"', f'href="{editora.link_privacidade}"')
 
     html = _trocar_imagens(html, slug_regiao, carregar_mapa_imagens(pasta))
-
-    avisos: list[str] = []
-    impedimentos: list[str] = []
 
     if 'href="#"' in html:
         avisos.append(
