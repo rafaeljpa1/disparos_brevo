@@ -30,6 +30,7 @@ class Config:
     link_politica_privacidade: str = ""
     editora_razao_social: str = ""
     link_site: str = ""
+    logo_rodape_url: str = ""
 
 
 def carregar_config(exigir_api_key: bool = True) -> Config:
@@ -64,4 +65,5 @@ def carregar_config(exigir_api_key: bool = True) -> Config:
         link_politica_privacidade=os.environ.get("LINK_POLITICA_PRIVACIDADE", "").strip(),
         editora_razao_social=os.environ.get("EDITORA_RAZAO_SOCIAL", "").strip(),
         link_site=os.environ.get("LINK_SITE", "").strip(),
+        logo_rodape_url=os.environ.get("LOGO_RODAPE_URL", "").strip(),
     )

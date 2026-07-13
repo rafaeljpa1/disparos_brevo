@@ -18,7 +18,8 @@ TEMPLATE_BASE = """<!DOCTYPE html>
 <a href="{{link_lp_regional}}">Regional</a>
 <img src="data:image/jpeg;base64,AAAA" alt="Capa do livro Conheça o Brasil — Região Sul" />
 <img src="data:image/jpeg;base64,BBBB" alt="Coleção Arte" />
-<footer>[ENDEREÇO FÍSICO COMPLETO] &middot; CNPJ [00.000.000/0000-00]<br>
+<footer><span style="font-size:15px; font-weight:700;">Editora Casa de Letras</span><br>
+[ENDEREÇO FÍSICO COMPLETO] &middot; CNPJ [00.000.000/0000-00]<br>
 <a href="mailto:contato@novidades.[DOMINIO].com.br">contato@novidades.[DOMINIO].com.br</a></footer>
 <a href="{{ unsubscribe }}">Descadastrar</a> &middot; <a href="#">Política de privacidade</a>
 <!--[if mso]></td></tr></table><![endif]-->
@@ -36,6 +37,7 @@ EDITORA_COMPLETA = DadosEditora(
     email_contato="comercial@casadeletras.com.br",
     link_privacidade="https://casadeletras.com.br/politica-de-privacidade/",
     link_site="https://casadeletras.com.br/",
+    logo_url="https://casadeletras.com.br/logo.png",
 )
 
 
@@ -165,6 +167,23 @@ def test_logo_com_link_para_o_site(pasta):
     )
 
 
+def test_logo_do_rodape_acima_do_titulo(pasta):
+    import re
+
+    montado = montar_template(pasta, "sul", EDITORA_COMPLETA)
+    assert re.search(
+        r'<a href="https://casadeletras\.com\.br/" target="_blank"[^>]*>'
+        r'<img src="https://casadeletras\.com\.br/logo\.png"[^>]*alt="Casa de Letras"[^>]*></a>'
+        r"<span[^>]*>Editora Casa de Letras</span>",
+        montado.html,
+    )
+
+
+def test_rodape_sem_logo_quando_nao_configurado(pasta):
+    montado = montar_template(pasta, "sul", EDITORA)
+    assert 'alt="Casa de Letras"' not in montado.html
+
+
 def test_logo_sem_link_quando_nao_configurado(pasta):
     montado = montar_template(pasta, "sul", EDITORA)
     assert 'target="_blank" style="text-decoration:none;"' not in montado.html
@@ -208,5 +227,7 @@ def test_templates_reais_do_repositorio():
         assert 'href="https://casadeletras.com.br/" target="_blank"' in montado.html
         assert "prerrogativa exclusiva dos educadores" in montado.html
         assert 'href="https://casadeletras.com.br/politica-de-privacidade/"' in montado.html
+        # logo do site no rodapé, acima do título
+        assert 'src="https://casadeletras.com.br/logo.png"' in montado.html
         # imagens ainda em base64 → deve avisar enquanto não houver imagens.json
         assert any("base64" in a for a in montado.avisos)

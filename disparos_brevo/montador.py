@@ -53,6 +53,7 @@ class DadosEditora:
     link_privacidade: str = ""
     razao_social: str = ""
     link_site: str = ""
+    logo_url: str = ""
 
 
 # e-mail fictício que veio no rodapé dos templates
@@ -68,6 +69,11 @@ _RE_LINHA_RODAPE = re.compile(
 # logo textual do topo ("Casa de Letras"), sem link no template original
 _RE_LOGO = re.compile(
     r'(<span style="[^"]*font-size:22px[^"]*">\s*Casa de Letras\s*</span>)'
+)
+
+# título "Editora Casa de Letras" do rodapé — o logo do site entra acima dele
+_RE_TITULO_RODAPE = re.compile(
+    r"(<span[^>]*>\s*Editora Casa de Letras\s*</span>)"
 )
 
 
@@ -166,6 +172,19 @@ def montar_template(
             r'style="text-decoration:none;">\1</a>',
             html,
         )
+    if editora.logo_url:
+        # logo do site acima do título do rodapé, clicável como na página
+        img = (
+            f'<img src="{editora.logo_url}" width="80" alt="Casa de Letras" '
+            'style="display:block; margin:0 auto 12px; width:80px; '
+            'height:auto; border:0;">'
+        )
+        if editora.link_site:
+            img = (
+                f'<a href="{editora.link_site}" target="_blank" '
+                f'style="text-decoration:none;">{img}</a>'
+            )
+        html = _RE_TITULO_RODAPE.sub(img + r"\1", html)
     if editora.endereco:
         html = html.replace("[ENDEREÇO FÍSICO COMPLETO]", editora.endereco)
         html = html.replace("[ENDEREÇO FÍSICO]", editora.endereco)
