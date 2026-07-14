@@ -240,5 +240,7 @@ def test_templates_reais_do_repositorio():
         assert "background-color:#1E3F58; border-radius:16px;" in montado.html
         assert ">Editora Casa de Letras</span>" not in montado.html
         assert "{{link_site}}" not in montado.html
-        # imagens ainda em base64 → deve avisar enquanto não houver imagens.json
-        assert any("base64" in a for a in montado.avisos)
+        # com imagens.json preenchido, nada fica em base64
+        assert "data:image" not in montado.html
+        assert not any("base64" in a for a in montado.avisos)
+        assert montado.html.count("raw.githubusercontent.com") == 5
