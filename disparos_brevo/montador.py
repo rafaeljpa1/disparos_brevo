@@ -51,10 +51,38 @@ class DadosEditora:
     dominio: str = ""
     email_contato: str = ""
     link_privacidade: str = ""
+    razao_social: str = ""
+    link_site: str = ""
+    logo_url: str = ""
 
 
 # e-mail fictício que veio no rodapé dos templates
 _EMAIL_MODELO = "contato@novidades.[DOMINIO].com.br"
+
+# linha institucional do rodapé como veio nos templates (endereço · CNPJ);
+# com razão social definida, é reescrita na ordem do rodapé do site:
+# razão social · CNPJ · endereço
+_RE_LINHA_RODAPE = re.compile(
+    r"\[ENDEREÇO FÍSICO COMPLETO\]\s*&middot;\s*CNPJ\s*\[00\.000\.000/0000-00\]"
+)
+
+# logo textual do topo ("Casa de Letras"), sem link no template original
+_RE_LOGO = re.compile(
+    r'(<span style="[^"]*font-size:22px[^"]*">\s*Casa de Letras\s*</span>)'
+)
+
+# bloco do logo no rodapé (removido inteiro quando não há URL de logo)
+_RE_BLOCO_LOGO = re.compile(
+    r'<a href="\{\{link_site\}\}"[^>]*>\s*<img src="\{\{logo_editora\}\}"[^>]*>\s*</a>'
+)
+
+# chip azul do topo com o logo; sem URL de logo, volta o texto original
+_RE_CHIP_LOGO_TOPO = re.compile(r'<table[^>]*class="logo-topo".*?</table>', re.S)
+_SPAN_LOGO_TEXTO = (
+    "<span style=\"font-family:'Poppins',Arial,Helvetica,sans-serif; "
+    'font-size:22px; font-weight:700; letter-spacing:-.01em; '
+    'color:#1E3F58;">Casa de Letras</span>'
+)
 
 
 @dataclass
@@ -124,6 +152,9 @@ def montar_template(
     html = caminho.read_text(encoding="utf-8")
     html = _RE_COMENTARIO.sub("", html)
 
+    avisos: list[str] = []
+    impedimentos: list[str] = []
+
     # "{regiao}" nos links vira o slug (ex.: .../pnld-2027-{regiao}/ →
     # .../pnld-2027-norte/), permitindo uma landing page por região
     link_nacional = link_nacional.replace("{regiao}", slug_regiao)
@@ -140,6 +171,34 @@ def montar_template(
         _com_utm(link_regional, utm_campanha, f"{slug_regiao}-regional"),
     )
 
+    if editora.razao_social and editora.cnpj and editora.endereco:
+        html = _RE_LINHA_RODAPE.sub(
+            f"{editora.razao_social} &middot; CNPJ {editora.cnpj} "
+            f"&middot; {editora.endereco}",
+            html,
+        )
+    # logo (topo e rodapé): com URL definida preenche os slots; sem URL, o
+    # chip do topo volta a ser o texto "Casa de Letras" e o bloco do rodapé
+    # é removido — nunca fica imagem quebrada
+    if editora.logo_url:
+        html = html.replace("{{logo_editora}}", editora.logo_url)
+    elif "{{logo_editora}}" in html:
+        html = _RE_CHIP_LOGO_TOPO.sub(_SPAN_LOGO_TEXTO, html)
+        html = _RE_BLOCO_LOGO.sub("", html)
+        avisos.append(
+            "Logo sem URL (LOGO_URL) — topo voltou ao texto e o logo do "
+            "rodapé foi removido"
+        )
+    html = html.replace(
+        "{{link_site}}", editora.link_site or "https://casadeletras.com.br/"
+    )
+    if editora.link_site:
+        # logo textual do topo (original ou texto de reserva) vira link
+        html = _RE_LOGO.sub(
+            rf'<a href="{editora.link_site}" target="_blank" '
+            r'style="text-decoration:none;">\1</a>',
+            html,
+        )
     if editora.endereco:
         html = html.replace("[ENDEREÇO FÍSICO COMPLETO]", editora.endereco)
         html = html.replace("[ENDEREÇO FÍSICO]", editora.endereco)
@@ -157,9 +216,6 @@ def montar_template(
         html = html.replace('href="#"', f'href="{editora.link_privacidade}"')
 
     html = _trocar_imagens(html, slug_regiao, carregar_mapa_imagens(pasta))
-
-    avisos: list[str] = []
-    impedimentos: list[str] = []
 
     if 'href="#"' in html:
         avisos.append(
@@ -200,3 +256,30 @@ def montar_template(
 
 def slug_da_regiao(regiao: str) -> str:
     return SLUG_POR_REGIAO[regiao]
+
+
+# UF representativa de cada região, usada nas prévias
+UF_EXEMPLO = {
+    "norte": "PA",
+    "nordeste": "BA",
+    "centro-oeste": "GO",
+    "sudeste": "SP",
+    "sul": "PR",
+}
+
+
+def aplicar_dados_de_exemplo(
+    html: str,
+    slug_regiao: str,
+    nome_escola: str = "Escola Municipal Monteiro Lobato",
+) -> str:
+    """Preenche o HTML montado com dados fictícios para prévia no navegador.
+
+    No envio real, ``{{params.*}}`` é preenchido pelo Brevo por contato e
+    ``{{ unsubscribe }}`` vira o link de descadastro; na prévia, entram
+    valores de exemplo para o e-mail poder ser aberto num visualizador.
+    """
+    html = html.replace("{{params.NOME_ESCOLA}}", nome_escola)
+    html = html.replace("{{params.UF}}", UF_EXEMPLO.get(slug_regiao, "UF"))
+    html = html.replace("{{ unsubscribe }}", "#exemplo-link-de-descadastro-do-brevo")
+    return html

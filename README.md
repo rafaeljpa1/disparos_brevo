@@ -134,13 +134,13 @@ Antes do envio, cada template é montado automaticamente:
   região (`utm_content=sul-nacional` etc.). No link regional, `{regiao}` é
   trocado pelo slug: `https://casadeletras.com.br/pnld-2027-{regiao}/` →
   `.../pnld-2027-norte/`;
-- o rodapé espelha o do site da editora: endereço físico, CNPJ e e-mail de
-  contato vêm de `EDITORA_ENDERECO`, `EDITORA_CNPJ` e
-  `EDITORA_EMAIL_CONTATO` (o `.env.example` já traz os dados públicos da
-  Casa de Letras Editora e Gráfica Ltda — confira com o site antes do
-  disparo). O envio real é **bloqueado** enquanto estiverem vazios
-  (exigência anti-spam). O link "Política de privacidade" usa
-  `LINK_POLITICA_PRIVACIDADE`;
+- o rodapé espelha o do site da editora: faixa azul-marinho com o logo
+  (`LOGO_RODAPE_URL`, clicável para `LINK_SITE`), razão social, endereço,
+  CNPJ e e-mail de contato (`EDITORA_RAZAO_SOCIAL`, `EDITORA_ENDERECO`,
+  `EDITORA_CNPJ`, `EDITORA_EMAIL_CONTATO` — o `.env.example` já vem
+  preenchido com os dados confirmados do site). O envio real é
+  **bloqueado** enquanto estiverem vazios (exigência anti-spam). O link
+  "Política de privacidade" usa `LINK_POLITICA_PRIVACIDADE`;
 - contatos descadastrados/bloqueados no Brevo são pulados;
 - `{{ unsubscribe }}` é mantido para o Brevo gerar o link de descadastro.
 

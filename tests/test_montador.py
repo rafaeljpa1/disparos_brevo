@@ -10,12 +10,18 @@ TEMPLATE_BASE = """<!DOCTYPE html>
 <body>
 <!-- comentário com instruções {{...}} e [SUBSTITUIR] -->
 <!--[if mso]><table><tr><td><![endif]-->
+<table cellpadding="0" cellspacing="0" align="center" class="logo-topo">
+<tr><td style="background-color:#1E3F58; border-radius:14px; padding:12px 18px;">
+<a href="{{link_site}}" target="_blank" style="text-decoration:none;"><img src="{{logo_editora}}" width="64" alt="Casa de Letras" style="border:0;"></a>
+</td></tr>
+</table>
 <p>Olá, equipe da {{nome_escola}}! Escolas de {{uf}}, região {{regiao}}.</p>
 <a href="{{link_lp_nacional}}">Nacional</a>
 <a href="{{link_lp_regional}}">Regional</a>
 <img src="data:image/jpeg;base64,AAAA" alt="Capa do livro Conheça o Brasil — Região Sul" />
 <img src="data:image/jpeg;base64,BBBB" alt="Coleção Arte" />
-<footer>[ENDEREÇO FÍSICO] — CNPJ [00.000.000/0000-00] —
+<footer><a href="{{link_site}}" target="_blank" style="text-decoration:none;"><img src="{{logo_editora}}" width="84" alt="Casa de Letras" style="border:0;"></a><br>
+[ENDEREÇO FÍSICO COMPLETO] &middot; CNPJ [00.000.000/0000-00]<br>
 <a href="mailto:contato@novidades.[DOMINIO].com.br">contato@novidades.[DOMINIO].com.br</a></footer>
 <a href="{{ unsubscribe }}">Descadastrar</a> &middot; <a href="#">Política de privacidade</a>
 <!--[if mso]></td></tr></table><![endif]-->
@@ -24,6 +30,16 @@ TEMPLATE_BASE = """<!DOCTYPE html>
 
 EDITORA = DadosEditora(
     endereco="Rua X, 1 — Rio de Janeiro/RJ", cnpj="00.000.000/0001-00", dominio="casadeletras"
+)
+
+EDITORA_COMPLETA = DadosEditora(
+    razao_social="Casa de Letras e Gráfica Ltda",
+    cnpj="48.764.955/0001-41",
+    endereco="Rua Fradique Coutinho, 1139 – Pinheiros · CEP 05416-011 · São Paulo – SP",
+    email_contato="comercial@casadeletras.com.br",
+    link_privacidade="https://casadeletras.com.br/politica-de-privacidade/",
+    link_site="https://casadeletras.com.br/",
+    logo_url="https://casadeletras.com.br/logo.png",
 )
 
 
@@ -132,6 +148,67 @@ def test_troca_imagens_por_urls_hospedadas(pasta):
     assert not any("base64" in aviso for aviso in montado.avisos)
 
 
+def test_linha_institucional_na_ordem_do_site(pasta):
+    montado = montar_template(pasta, "sul", EDITORA_COMPLETA)
+    assert (
+        "Casa de Letras e Gráfica Ltda &middot; CNPJ 48.764.955/0001-41 "
+        "&middot; Rua Fradique Coutinho, 1139 – Pinheiros · CEP 05416-011 "
+        "· São Paulo – SP" in montado.html
+    )
+    assert montado.impedimentos == []
+
+
+def test_texto_reserva_do_topo_com_link_para_o_site(pasta):
+    import re
+
+    # sem URL de logo, mas com link do site: o texto de reserva vira link
+    editora = DadosEditora(
+        endereco="x", cnpj="y", dominio="z", link_site="https://casadeletras.com.br/"
+    )
+    montado = montar_template(pasta, "sul", editora)
+    assert re.search(
+        r'<a href="https://casadeletras\.com\.br/" target="_blank"[^>]*>'
+        r"<span[^>]*>Casa de Letras</span></a>",
+        montado.html,
+    )
+
+
+def test_logo_preenchido_no_topo_e_no_rodape(pasta):
+    montado = montar_template(pasta, "sul", EDITORA_COMPLETA)
+    assert montado.html.count('src="https://casadeletras.com.br/logo.png"') == 2
+    assert 'class="logo-topo"' in montado.html
+    assert '<a href="https://casadeletras.com.br/" target="_blank"' in montado.html
+    assert "{{logo_editora}}" not in montado.html
+    assert "{{link_site}}" not in montado.html
+
+
+def test_sem_logo_topo_vira_texto_e_rodape_remove(pasta):
+    montado = montar_template(pasta, "sul", EDITORA)
+    assert 'alt="Casa de Letras"' not in montado.html
+    assert 'class="logo-topo"' not in montado.html
+    assert ">Casa de Letras</span>" in montado.html  # texto de reserva no topo
+    assert "{{logo_editora}}" not in montado.html
+    assert "{{link_site}}" not in montado.html
+    assert any("LOGO_URL" in aviso for aviso in montado.avisos)
+
+
+def test_logo_sem_link_quando_nao_configurado(pasta):
+    montado = montar_template(pasta, "sul", EDITORA)
+    assert 'target="_blank" style="text-decoration:none;"' not in montado.html
+
+
+def test_aplicar_dados_de_exemplo(pasta):
+    from disparos_brevo.montador import aplicar_dados_de_exemplo
+
+    montado = montar_template(pasta, "sul", EDITORA)
+    previa = aplicar_dados_de_exemplo(montado.html, "sul")
+    assert "{{params.NOME_ESCOLA}}" not in previa
+    assert "{{params.UF}}" not in previa
+    assert "{{ unsubscribe }}" not in previa
+    assert "Escola Municipal Monteiro Lobato" in previa
+    assert "PR" in previa
+
+
 def test_regiao_desconhecida(pasta):
     with pytest.raises(ValueError):
         montar_template(pasta, "atlantida", EDITORA)
@@ -146,10 +223,24 @@ def test_templates_reais_do_repositorio():
     """Os 5 templates reais montam sem impedimentos de link/placeholder."""
     reais = Path(__file__).parent.parent / "templates" / "pnld2027" / "email01"
     for slug in ["norte", "nordeste", "centro-oeste", "sudeste", "sul"]:
-        montado = montar_template(reais, slug, EDITORA, utm_campanha="pnld2027-email01")
+        montado = montar_template(
+            reais, slug, EDITORA_COMPLETA, utm_campanha="pnld2027-email01"
+        )
         assert montado.impedimentos == [], f"{slug}: {montado.impedimentos}"
         assert "{{nome_escola}}" not in montado.html
         assert "{{regiao}}" not in montado.html
         assert "{{params.NOME_ESCOLA}}" in montado.html
-        # imagens ainda em base64 → deve avisar enquanto não houver imagens.json
-        assert any("base64" in a for a in montado.avisos)
+        # rodapé espelhando o site
+        assert "Casa de Letras e Gráfica Ltda &middot; CNPJ 48.764.955/0001-41" in montado.html
+        assert 'href="https://casadeletras.com.br/" target="_blank"' in montado.html
+        assert "prerrogativa exclusiva dos educadores" in montado.html
+        assert 'href="https://casadeletras.com.br/politica-de-privacidade/"' in montado.html
+        # rodapé em faixa azul-marinho com o logo do site, sem título de texto
+        assert 'src="https://casadeletras.com.br/logo.png"' in montado.html
+        assert "background-color:#1E3F58; border-radius:16px;" in montado.html
+        assert ">Editora Casa de Letras</span>" not in montado.html
+        assert "{{link_site}}" not in montado.html
+        # com imagens.json preenchido, nada fica em base64
+        assert "data:image" not in montado.html
+        assert not any("base64" in a for a in montado.avisos)
+        assert montado.html.count("raw.githubusercontent.com") == 5

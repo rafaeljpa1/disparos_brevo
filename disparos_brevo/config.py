@@ -28,18 +28,22 @@ class Config:
     editora_dominio: str = ""
     editora_email_contato: str = ""
     link_politica_privacidade: str = ""
+    editora_razao_social: str = ""
+    link_site: str = ""
+    logo_url: str = ""
 
 
-def carregar_config() -> Config:
+def carregar_config(exigir_api_key: bool = True) -> Config:
     """Lê o .env (se existir) e monta a configuração do projeto.
 
-    Somente BREVO_API_KEY é obrigatória; as demais variáveis têm padrão
-    vazio e são validadas no momento do uso de cada canal.
+    Somente BREVO_API_KEY é obrigatória (dispensável para comandos que não
+    falam com a API, ex.: previa); as demais variáveis têm padrão vazio e
+    são validadas no momento do uso de cada canal.
     """
     load_dotenv()
 
     api_key = os.environ.get("BREVO_API_KEY", "").strip()
-    if not api_key:
+    if not api_key and exigir_api_key:
         raise ErroDeConfiguracao(
             "BREVO_API_KEY não definida. Copie .env.example para .env e "
             "preencha a chave de API (Brevo > Settings > SMTP & API > API Keys)."
@@ -59,4 +63,11 @@ def carregar_config() -> Config:
         editora_dominio=os.environ.get("EDITORA_DOMINIO", "").strip(),
         editora_email_contato=os.environ.get("EDITORA_EMAIL_CONTATO", "").strip(),
         link_politica_privacidade=os.environ.get("LINK_POLITICA_PRIVACIDADE", "").strip(),
+        editora_razao_social=os.environ.get("EDITORA_RAZAO_SOCIAL", "").strip(),
+        link_site=os.environ.get("LINK_SITE", "").strip(),
+        # LOGO_RODAPE_URL é o nome antigo, aceito por compatibilidade
+        logo_url=(
+            os.environ.get("LOGO_URL", "").strip()
+            or os.environ.get("LOGO_RODAPE_URL", "").strip()
+        ),
     )

@@ -80,12 +80,16 @@
 
         <table role="presentation" class="email-wrap" width="600" cellpadding="0" cellspacing="0" style="width:600px; max-width:600px;">
 
-          <!-- LOGO -->
+          <!-- LOGO (chip azul com a imagem; sem URL de logo o montador devolve o texto) -->
           <tr>
             <td align="center" style="padding:0 0 28px;">
-              <span style="font-family:'Poppins',Arial,Helvetica,sans-serif; font-size:22px; font-weight:700; letter-spacing:-.01em; color:#1E3F58;">
-                Casa de Letras
-              </span>
+              <table role="presentation" cellpadding="0" cellspacing="0" align="center" class="logo-topo">
+                <tr>
+                  <td style="background-color:#1E3F58; border-radius:14px; padding:12px 18px;">
+                    <a href="{{link_site}}" target="_blank" style="text-decoration:none;"><img src="{{logo_editora}}" width="64" alt="Casa de Letras" style="display:block; width:64px; height:auto; border:0;"></a>
+                  </td>
+                </tr>
+              </table>
             </td>
           </tr>
 
@@ -243,28 +247,34 @@
             </td>
           </tr>
 
-          <!-- RODAPÉ -->
+          <!-- RODAPÉ (faixa azul-marinho, como no rodapé do site) -->
           <tr>
-            <td align="center" style="padding:32px 24px 12px;">
-              <span style="font-family:'Poppins',Arial,Helvetica,sans-serif; font-size:15px; font-weight:700; color:#1E3F58;">Editora Casa de Letras</span>
-            </td>
-          </tr>
-          <tr>
-            <td align="center" style="padding:0 30px; font-family:Arial, Helvetica, sans-serif; font-size:12px; line-height:1.7; color:#8497A2;">
-              [ENDEREÇO FÍSICO COMPLETO] &middot; CNPJ [00.000.000/0000-00]<br>
-              <a href="mailto:contato@novidades.[DOMINIO].com.br" style="color:#8497A2; text-decoration:underline;">contato@novidades.[DOMINIO].com.br</a>
-            </td>
-          </tr>
-          <tr>
-            <td align="center" style="padding:14px 30px 0; font-family:Arial, Helvetica, sans-serif; font-size:11.5px; line-height:1.7; color:#8497A2;">
-              Você recebe este email porque {{nome_escola}} consta em registros públicos de contato escolar.<br>
-              <a href="{{ unsubscribe }}" style="color:#47603E; text-decoration:underline;">Descadastrar em 1 clique</a> &middot;
-              <a href="#" style="color:#47603E; text-decoration:underline;">Política de privacidade</a>
-            </td>
-          </tr>
-          <tr>
-            <td align="center" style="padding:18px 30px 36px; font-family:Arial, Helvetica, sans-serif; font-size:11px; line-height:1.6; color:#A9B4BC;">
-              Este email não possui vínculo com FNDE ou MEC e não utiliza marcas ou selos oficiais.
+            <td style="padding:28px 0 0;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#1E3F58; border-radius:16px;">
+                <tr>
+                  <td align="center" style="padding:34px 24px 0;">
+                    <a href="{{link_site}}" target="_blank" style="text-decoration:none;"><img src="{{logo_editora}}" width="84" alt="Casa de Letras" style="display:block; margin:0 auto; width:84px; height:auto; border:0;"></a>
+                  </td>
+                </tr>
+                <tr>
+                  <td align="center" style="padding:18px 30px 0; font-family:Arial, Helvetica, sans-serif; font-size:12px; line-height:1.7; color:#B9C6D0;">
+                    [ENDEREÇO FÍSICO COMPLETO] &middot; CNPJ [00.000.000/0000-00]<br>
+                    <a href="mailto:contato@novidades.[DOMINIO].com.br" style="color:#B9C6D0; text-decoration:underline;">contato@novidades.[DOMINIO].com.br</a>
+                  </td>
+                </tr>
+                <tr>
+                  <td align="center" style="padding:14px 30px 0; font-family:Arial, Helvetica, sans-serif; font-size:11.5px; line-height:1.7; color:#B9C6D0;">
+                    Você recebe este email porque {{nome_escola}} consta em registros públicos de contato escolar.<br>
+                    <a href="{{ unsubscribe }}" style="color:#E4C25A; text-decoration:underline;">Descadastrar em 1 clique</a> &middot;
+                    <a href="#" style="color:#E4C25A; text-decoration:underline;">Política de privacidade</a>
+                  </td>
+                </tr>
+                <tr>
+                  <td align="center" style="padding:18px 30px 34px; font-family:Arial, Helvetica, sans-serif; font-size:11px; line-height:1.6; color:#8FA3B0;">
+                    Material de divulgação da editora. Este email não possui vínculo com FNDE ou MEC e não utiliza marcas ou selos oficiais. A escolha de obras didáticas é prerrogativa exclusiva dos educadores.
+                  </td>
+                </tr>
+              </table>
             </td>
           </tr>
 

@@ -31,7 +31,12 @@ from .disparo import (
     resumo,
     salvar_relatorio,
 )
-from .montador import LINK_LP_PADRAO, DadosEditora, montar_template
+from .montador import (
+    LINK_LP_PADRAO,
+    DadosEditora,
+    aplicar_dados_de_exemplo,
+    montar_template,
+)
 from .regioes import SLUG_POR_REGIAO, agrupar_por_regiao
 
 
@@ -62,6 +67,15 @@ def _criar_parser() -> argparse.ArgumentParser:
     p_email.add_argument("--remetente-nome", default=None)
     p_email.add_argument("--remetente-email", default=None)
     p_email.add_argument("--lote", type=int, default=LOTE_EMAIL_PADRAO, help=f"Destinatários por chamada (padrão {LOTE_EMAIL_PADRAO})")
+
+    p_previa = sub.add_parser(
+        "previa",
+        help="Gera o HTML final dos templates regionais para conferir no navegador",
+    )
+    p_previa.add_argument("--templates", default="templates/pnld2027/email01", help="Pasta com <regiao>.html")
+    p_previa.add_argument("--saida", default="previas", help="Pasta de saída dos HTML montados")
+    p_previa.add_argument("--regiao", choices=sorted(SLUG_POR_REGIAO.values()), help="Gera só uma região")
+    p_previa.add_argument("--tag", default="pnld2027-email01", help="Campanha usada nos parâmetros UTM dos links")
 
     p_reg = sub.add_parser(
         "email-regional",
@@ -166,6 +180,54 @@ def _comando_email(args, config) -> int:
     return _finalizar(resultados, args.confirmar)
 
 
+def _editora_da_config(config) -> DadosEditora:
+    return DadosEditora(
+        endereco=config.editora_endereco,
+        cnpj=config.editora_cnpj,
+        dominio=config.editora_dominio,
+        email_contato=config.editora_email_contato,
+        link_privacidade=config.link_politica_privacidade,
+        razao_social=config.editora_razao_social,
+        link_site=config.link_site,
+        logo_url=config.logo_url,
+    )
+
+
+def _comando_previa(args, config) -> int:
+    editora = _editora_da_config(config)
+    link_nacional = config.link_lp_nacional or LINK_LP_PADRAO
+    link_regional = config.link_lp_regional or link_nacional
+
+    saida = Path(args.saida)
+    saida.mkdir(parents=True, exist_ok=True)
+    slugs = [args.regiao] if args.regiao else sorted(SLUG_POR_REGIAO.values())
+    houve_pendencia = False
+    for slug in slugs:
+        montado = montar_template(
+            args.templates,
+            slug,
+            editora,
+            link_nacional=link_nacional,
+            link_regional=link_regional,
+            utm_campanha=args.tag or "",
+        )
+        for aviso in montado.avisos:
+            print(f"[{montado.regiao}] AVISO: {aviso}")
+        for impedimento in montado.impedimentos:
+            houve_pendencia = True
+            print(f"[{montado.regiao}] PENDÊNCIA: {impedimento}", file=sys.stderr)
+        caminho = saida / f"{slug}.html"
+        caminho.write_text(
+            aplicar_dados_de_exemplo(montado.html, slug), encoding="utf-8"
+        )
+        print(f"[{montado.regiao}] prévia gerada: {caminho}")
+    print(
+        "Abra os arquivos no navegador para conferir textos, imagens e links "
+        "(o link de descadastro só é gerado pelo Brevo no envio real)."
+    )
+    return 1 if houve_pendencia else 0
+
+
 def _comando_email_regional(args, config) -> int:
     if bool(args.lista_id) == bool(args.contatos):
         print("Informe --lista-id OU --contatos (exatamente um dos dois).", file=sys.stderr)
@@ -208,13 +270,7 @@ def _comando_email_regional(args, config) -> int:
     for regiao in sorted(por_regiao):
         print(f"  {regiao}: {len(por_regiao[regiao])} contatos")
 
-    editora = DadosEditora(
-        endereco=config.editora_endereco,
-        cnpj=config.editora_cnpj,
-        dominio=config.editora_dominio,
-        email_contato=config.editora_email_contato,
-        link_privacidade=config.link_politica_privacidade,
-    )
+    editora = _editora_da_config(config)
     link_nacional = config.link_lp_nacional or LINK_LP_PADRAO
     link_regional = config.link_lp_regional or link_nacional
 
@@ -311,13 +367,16 @@ def _comando_whatsapp(args, config) -> int:
 def main(argv: list[str] | None = None) -> int:
     args = _criar_parser().parse_args(argv)
     try:
-        config = carregar_config()
+        # a prévia não fala com a API, então não exige BREVO_API_KEY
+        config = carregar_config(exigir_api_key=args.comando != "previa")
     except ErroDeConfiguracao as erro:
         print(f"Erro de configuração: {erro}", file=sys.stderr)
         return 2
 
     if args.comando == "verificar":
         return _comando_verificar(config)
+    if args.comando == "previa":
+        return _comando_previa(args, config)
     if args.comando == "email":
         return _comando_email(args, config)
     if args.comando == "email-regional":
