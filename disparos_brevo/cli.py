@@ -148,6 +148,32 @@ def _comando_verificar(config) -> int:
     print(f"Empresa: {conta.get('companyName', '')}")
     for plano in conta.get("plan", []):
         print(f"Plano [{plano.get('type')}]: {plano.get('credits')} créditos ({plano.get('creditsType')})")
+
+    print()
+    if not config.remetente_email:
+        print("Remetente de envio: NÃO configurado — defina REMETENTE_NOME e "
+              "REMETENTE_EMAIL no .env")
+        return 1
+    nome = config.remetente_nome or config.remetente_email
+    print(f"Remetente de envio (.env): {nome} <{config.remetente_email}>")
+
+    cadastrado = next(
+        (
+            r
+            for r in client.remetentes()
+            if (r.get("email") or "").lower() == config.remetente_email.lower()
+        ),
+        None,
+    )
+    if cadastrado is None:
+        print("  ATENÇÃO: este remetente NÃO está cadastrado no Brevo — o envio "
+              "será recusado. Cadastre em: Senders, Domains & Dedicated IPs > Senders")
+        return 1
+    if not cadastrado.get("active"):
+        print("  ATENÇÃO: remetente cadastrado porém INATIVO — confirme o código "
+              "de verificação enviado para a caixa dele.")
+        return 1
+    print("  OK: remetente cadastrado e ativo no Brevo.")
     return 0
 
 
