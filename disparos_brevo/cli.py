@@ -23,6 +23,7 @@ from .contatos import carregar_contatos, email_valido, filtrar_por_canal
 from .disparo import (
     LOTE_EMAIL_PADRAO,
     LOTE_WHATSAPP_PADRAO,
+    carregar_destinos_enviados,
     contato_brevo_para_dict,
     disparar_emails,
     disparar_sms,
@@ -87,6 +88,12 @@ def _criar_parser() -> argparse.ArgumentParser:
     p_reg.add_argument("--assunto", required=True, help="Assunto (aceita {NOME_ESCOLA}, {UF}, {REGIAO}...)")
     p_reg.add_argument("--regiao", choices=sorted(SLUG_POR_REGIAO.values()), help="Dispara só para uma região")
     p_reg.add_argument("--limite", type=int, default=None, help="Envia só para os N primeiros contatos de cada região")
+    p_reg.add_argument(
+        "--excluir-enviados",
+        metavar="RELATORIO",
+        help="Arquivo ou pasta de relatórios: pula contatos que já receberam "
+        "com sucesso (para dividir o disparo em etapas, ex.: relatorios/)",
+    )
     p_reg.add_argument("--tag", default="pnld2027-email01", help="Tag da campanha (rastreio no Brevo e UTM)")
     p_reg.add_argument("--lote", type=int, default=LOTE_EMAIL_PADRAO)
     p_reg.add_argument("--remetente-nome", default=None)
@@ -141,6 +148,32 @@ def _comando_verificar(config) -> int:
     print(f"Empresa: {conta.get('companyName', '')}")
     for plano in conta.get("plan", []):
         print(f"Plano [{plano.get('type')}]: {plano.get('credits')} créditos ({plano.get('creditsType')})")
+
+    print()
+    if not config.remetente_email:
+        print("Remetente de envio: NÃO configurado — defina REMETENTE_NOME e "
+              "REMETENTE_EMAIL no .env")
+        return 1
+    nome = config.remetente_nome or config.remetente_email
+    print(f"Remetente de envio (.env): {nome} <{config.remetente_email}>")
+
+    cadastrado = next(
+        (
+            r
+            for r in client.remetentes()
+            if (r.get("email") or "").lower() == config.remetente_email.lower()
+        ),
+        None,
+    )
+    if cadastrado is None:
+        print("  ATENÇÃO: este remetente NÃO está cadastrado no Brevo — o envio "
+              "será recusado. Cadastre em: Senders, Domains & Dedicated IPs > Senders")
+        return 1
+    if not cadastrado.get("active"):
+        print("  ATENÇÃO: remetente cadastrado porém INATIVO — confirme o código "
+              "de verificação enviado para a caixa dele.")
+        return 1
+    print("  OK: remetente cadastrado e ativo no Brevo.")
     return 0
 
 
@@ -263,6 +296,12 @@ def _comando_email_regional(args, config) -> int:
         for c in contatos
         if email_valido(c.get("EMAIL", ""))
     ]
+
+    if args.excluir_enviados:
+        enviados = carregar_destinos_enviados(args.excluir_enviados)
+        antes = len(contatos)
+        contatos = [c for c in contatos if c["_DESTINO"] not in enviados]
+        print(f"Já enviados em etapas anteriores (pulados): {antes - len(contatos)}")
 
     por_regiao, sem_regiao = agrupar_por_regiao(contatos)
     print(f"Contatos: {len(contatos)} válidos | {len(bloqueados)} descadastrados/bloqueados | "

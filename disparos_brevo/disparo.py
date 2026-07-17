@@ -175,6 +175,28 @@ def disparar_whatsapp(
     return resultados
 
 
+def carregar_destinos_enviados(caminho: str | Path) -> set[str]:
+    """Lê relatórios de envio (um CSV ou uma pasta deles) e retorna os
+    destinos que já receberam com sucesso (STATUS ok + DETALHE enviado).
+
+    Usado para dividir um disparo grande em etapas sem duplicar envios:
+    linhas de simulação e de erro não contam como enviadas.
+    """
+    caminho = Path(caminho)
+    if not caminho.exists():
+        raise FileNotFoundError(f"Relatório(s) não encontrado(s): {caminho}")
+    arquivos = sorted(caminho.glob("*.csv")) if caminho.is_dir() else [caminho]
+    enviados: set[str] = set()
+    for arquivo in arquivos:
+        with arquivo.open(newline="", encoding="utf-8") as f:
+            for linha in csv.DictReader(f):
+                if linha.get("STATUS") == "ok" and linha.get("DETALHE") == "enviado":
+                    destino = (linha.get("DESTINO") or "").strip().lower()
+                    if destino:
+                        enviados.add(destino)
+    return enviados
+
+
 # -------------------------------------------------------------------relatório
 
 def salvar_relatorio(

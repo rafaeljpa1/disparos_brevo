@@ -175,11 +175,30 @@ python -m disparos_brevo whatsapp \
 
 ### Opções comuns
 
-| Flag          | Efeito                                                  |
-| ------------- | ------------------------------------------------------- |
-| `--confirmar` | Envia de verdade (sem ela, apenas simula)               |
-| `--limite N`  | Envia só para os N primeiros contatos válidos (testes)  |
-| `--tag`       | Tag para rastrear a campanha nas estatísticas do Brevo  |
+| Flag                     | Efeito                                                        |
+| ------------------------ | ------------------------------------------------------------- |
+| `--confirmar`            | Envia de verdade (sem ela, apenas simula)                      |
+| `--limite N`             | Envia só para os N primeiros contatos válidos (testes/etapas)  |
+| `--excluir-enviados DIR` | Pula quem já recebeu com sucesso segundo os relatórios         |
+| `--tag`                  | Tag para rastrear a campanha nas estatísticas do Brevo         |
+
+### Disparo em etapas
+
+Quando os créditos do mês não cobrem a base inteira (ex.: 20 mil créditos
+para 35 mil contatos), divida o disparo mantendo os relatórios na pasta
+`relatorios/`:
+
+```bash
+# Etapa 1: uma região por vez
+python -m disparos_brevo email-regional --lista-id 3 --regiao norte --assunto "..." --confirmar
+
+# Etapa 2 (outro dia): manda para quem ainda não recebeu
+python -m disparos_brevo email-regional --lista-id 3 --regiao sudeste --limite 8000 \
+  --excluir-enviados relatorios/ --assunto "..." --confirmar
+```
+
+Linhas de simulação e de erro nos relatórios **não** contam como enviadas —
+só quem realmente recebeu é pulado.
 
 Todo disparo gera um relatório CSV em `relatorios/` com o status de cada
 contato (enviado / erro / simulado).

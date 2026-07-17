@@ -105,6 +105,10 @@ class BrevoClient:
         """GET /account — dados da conta, plano e créditos."""
         return self._requisitar("GET", "/account")
 
+    def remetentes(self) -> list[dict]:
+        """GET /senders — remetentes de e-mail cadastrados na conta."""
+        return self._requisitar("GET", "/senders").get("senders", [])
+
     # --------------------------------------------------------------- contatos
 
     def contatos_da_lista(self, lista_id: int, por_pagina: int = 500) -> list[dict]:

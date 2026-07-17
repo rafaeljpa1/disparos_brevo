@@ -48,6 +48,28 @@ def test_contatos_da_lista_pagina_ate_o_fim():
     assert params2["offset"] == 500
 
 
+def test_carregar_destinos_enviados(tmp_path):
+    from disparos_brevo.disparo import carregar_destinos_enviados
+
+    (tmp_path / "relatorio_email_1.csv").write_text(
+        "DESTINO,CANAL,STATUS,DETALHE\n"
+        "a@b.com,email,ok,enviado\n"
+        "c@d.com,email,ok,simulado\n"
+        "e@f.com,email,erro,HTTP 400: erro\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "relatorio_email_2.csv").write_text(
+        "DESTINO,CANAL,STATUS,DETALHE\nG@H.com,email,ok,enviado\n",
+        encoding="utf-8",
+    )
+    enviados = carregar_destinos_enviados(tmp_path)
+    # só contam os enviados de verdade: simulação e erro ficam de fora
+    assert enviados == {"a@b.com", "g@h.com"}
+
+    apenas_um = carregar_destinos_enviados(tmp_path / "relatorio_email_1.csv")
+    assert apenas_um == {"a@b.com"}
+
+
 def test_assunto_personalizado_por_destinatario():
     class ClienteFake:
         def __init__(self):

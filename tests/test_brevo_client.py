@@ -94,6 +94,18 @@ def test_enviar_whatsapp_monta_corpo():
     }
 
 
+def test_remetentes_consulta_endpoint_senders():
+    cliente, sessao = cliente_com_resposta(
+        status_code=200,
+        corpo={"senders": [{"id": 2, "email": "atendimento@casadeletras.com.br", "active": True}]},
+    )
+    remetentes = cliente.remetentes()
+    metodo, url = sessao.request.call_args.args[:2]
+    assert metodo == "GET"
+    assert url.endswith("/senders")
+    assert remetentes[0]["email"] == "atendimento@casadeletras.com.br"
+
+
 def test_erro_http_vira_brevo_api_error():
     cliente, _ = cliente_com_resposta(status_code=401, corpo={"message": "Key not found"})
     with pytest.raises(BrevoAPIError) as excecao:
