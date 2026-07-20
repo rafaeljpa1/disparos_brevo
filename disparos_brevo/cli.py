@@ -23,6 +23,7 @@ from .contatos import carregar_contatos, email_valido, filtrar_por_canal
 from .disparo import (
     LOTE_EMAIL_PADRAO,
     LOTE_WHATSAPP_PADRAO,
+    acrescentar_relatorio,
     carregar_destinos_enviados,
     contato_brevo_para_dict,
     disparar_emails,
@@ -94,6 +95,12 @@ def _criar_parser() -> argparse.ArgumentParser:
         help="Arquivo ou pasta de relatórios: pula contatos que já receberam "
         "com sucesso (para dividir o disparo em etapas, ex.: relatorios/)",
     )
+    p_reg.add_argument(
+        "--acumular-em",
+        metavar="ARQUIVO",
+        help="Em envio real, acrescenta os resultados a este relatório único "
+        "em vez de criar um novo arquivo por execução",
+    )
     p_reg.add_argument("--tag", default="pnld2027-email01", help="Tag da campanha (rastreio no Brevo e UTM)")
     p_reg.add_argument("--lote", type=int, default=LOTE_EMAIL_PADRAO)
     p_reg.add_argument("--remetente-nome", default=None)
@@ -129,13 +136,19 @@ def _preparar_contatos(args, canal: str) -> list[dict]:
     return validos
 
 
-def _finalizar(resultados, confirmar: bool) -> int:
+def _finalizar(resultados, confirmar: bool, acumular_em: str | None = None) -> int:
     if not resultados:
         print("Nenhum contato válido para envio.")
         return 1
-    caminho = salvar_relatorio(resultados)
     print(resumo(resultados))
-    print(f"Relatório: {caminho}")
+    if confirmar and acumular_em:
+        caminho = acrescentar_relatorio(resultados, acumular_em)
+        with caminho.open(encoding="utf-8") as arquivo:
+            total = sum(1 for _ in arquivo) - 1
+        print(f"Relatório acumulado: {caminho} ({total} registros no total)")
+    else:
+        caminho = salvar_relatorio(resultados)
+        print(f"Relatório: {caminho}")
     if not confirmar:
         print("MODO SIMULAÇÃO — nada foi enviado. Use --confirmar para enviar de verdade.")
     return 0 if all(r.sucesso for r in resultados) else 1
@@ -362,7 +375,7 @@ def _comando_email_regional(args, config) -> int:
     if resultados and not args.confirmar:
         exemplo = resultados[0].contato
         print(f'Exemplo de assunto: "{personalizar(args.assunto, exemplo)}"')
-    return _finalizar(resultados, args.confirmar)
+    return _finalizar(resultados, args.confirmar, acumular_em=args.acumular_em)
 
 
 def _comando_sms(args, config) -> int:

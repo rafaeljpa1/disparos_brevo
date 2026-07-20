@@ -233,6 +233,46 @@ def salvar_relatorio(
     return caminho
 
 
+def acrescentar_relatorio(
+    resultados: list[ResultadoEnvio], caminho: str | Path
+) -> Path:
+    """Acrescenta os resultados a um relatório acumulado único.
+
+    Se o arquivo não existir, é criado com o cabeçalho padrão; se existir,
+    as linhas novas seguem o cabeçalho que já está nele (colunas ausentes
+    ficam vazias) e nenhum cabeçalho é repetido.
+    """
+    caminho = Path(caminho)
+    caminho.parent.mkdir(parents=True, exist_ok=True)
+
+    if caminho.exists():
+        with caminho.open(newline="", encoding="utf-8") as arquivo:
+            cabecalho = next(csv.reader(arquivo), None)
+        if not cabecalho:
+            raise ValueError(f"Relatório acumulado sem cabeçalho: {caminho}")
+    else:
+        colunas_extras = sorted(
+            {c for r in resultados for c in r.contato if not c.startswith("_")}
+        )
+        cabecalho = ["DESTINO", "CANAL", "STATUS", "DETALHE", *colunas_extras]
+        with caminho.open("w", newline="", encoding="utf-8") as arquivo:
+            csv.writer(arquivo).writerow(cabecalho)
+
+    with caminho.open("a", newline="", encoding="utf-8") as arquivo:
+        escritor = csv.writer(arquivo)
+        for r in resultados:
+            base = {
+                "DESTINO": r.destino,
+                "CANAL": r.canal,
+                "STATUS": "ok" if r.sucesso else "erro",
+                "DETALHE": r.detalhe,
+            }
+            escritor.writerow(
+                [base.get(c, r.contato.get(c, "")) for c in cabecalho]
+            )
+    return caminho
+
+
 def resumo(resultados: list[ResultadoEnvio]) -> str:
     total = len(resultados)
     ok = sum(1 for r in resultados if r.sucesso)
