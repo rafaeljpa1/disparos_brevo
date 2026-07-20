@@ -70,6 +70,30 @@ def test_carregar_destinos_enviados(tmp_path):
     assert apenas_um == {"a@b.com"}
 
 
+def test_acrescentar_relatorio(tmp_path):
+    from disparos_brevo.disparo import (
+        ResultadoEnvio,
+        acrescentar_relatorio,
+        carregar_destinos_enviados,
+    )
+
+    caminho = tmp_path / "relatorio_unificado.csv"
+    r1 = ResultadoEnvio("a@b.com", "email", True, "enviado",
+                        {"EMAIL": "a@b.com", "ESTADO": "SP", "REGIAO": "Sudeste"})
+    acrescentar_relatorio([r1], caminho)
+
+    # segunda leva: acrescenta sem repetir cabeçalho, mesmo com colunas diferentes
+    r2 = ResultadoEnvio("c@d.com", "email", True, "enviado", {"EMAIL": "c@d.com"})
+    r3 = ResultadoEnvio("e@f.com", "email", False, "HTTP 400", {"EMAIL": "e@f.com"})
+    acrescentar_relatorio([r2, r3], caminho)
+
+    linhas = caminho.read_text(encoding="utf-8").strip().splitlines()
+    assert len(linhas) == 4  # 1 cabeçalho + 3 registros
+    assert linhas[0].startswith("DESTINO,CANAL,STATUS,DETALHE")
+    # integra com a exclusão: só os enviados de verdade contam
+    assert carregar_destinos_enviados(caminho) == {"a@b.com", "c@d.com"}
+
+
 def test_assunto_personalizado_por_destinatario():
     class ClienteFake:
         def __init__(self):
