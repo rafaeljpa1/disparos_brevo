@@ -25,6 +25,7 @@ from .disparo import (
     LOTE_WHATSAPP_PADRAO,
     acrescentar_relatorio,
     carregar_destinos_enviados,
+    carregar_destinos_permitidos,
     contato_brevo_para_dict,
     disparar_emails,
     disparar_sms,
@@ -89,6 +90,13 @@ def _criar_parser() -> argparse.ArgumentParser:
     p_reg.add_argument("--assunto", required=True, help="Assunto (aceita {NOME_ESCOLA}, {UF}, {REGIAO}...)")
     p_reg.add_argument("--regiao", choices=sorted(SLUG_POR_REGIAO.values()), help="Dispara só para uma região")
     p_reg.add_argument("--limite", type=int, default=None, help="Envia só para os N primeiros contatos de cada região")
+    p_reg.add_argument(
+        "--somente-destinos",
+        metavar="ARQUIVO",
+        help="Arquivo de e-mails (CSV com coluna EMAIL ou um e-mail por linha): "
+        "restringe o envio aos contatos que estão nele, ex.: segmento de "
+        "entregues da campanha anterior exportado dos logs do Brevo",
+    )
     p_reg.add_argument(
         "--excluir-enviados",
         metavar="RELATORIO",
@@ -288,6 +296,16 @@ def _comando_email_regional(args, config) -> int:
         "email": remetente_email,
     }
 
+    # valida o segmento antes de qualquer chamada à API: um caminho errado
+    # não pode custar o download da lista inteira do Brevo
+    permitidos = None
+    if args.somente_destinos:
+        try:
+            permitidos = carregar_destinos_permitidos(args.somente_destinos)
+        except (OSError, ValueError) as erro:
+            print(f"Erro em --somente-destinos: {erro}", file=sys.stderr)
+            return 2
+
     # A conexão com o Brevo é necessária para buscar contatos da lista,
     # mesmo em simulação; para CSV local, só conecta em envio real.
     client = None
@@ -309,6 +327,11 @@ def _comando_email_regional(args, config) -> int:
         for c in contatos
         if email_valido(c.get("EMAIL", ""))
     ]
+
+    if permitidos is not None:
+        antes = len(contatos)
+        contatos = [c for c in contatos if c["_DESTINO"] in permitidos]
+        print(f"Fora do segmento --somente-destinos (pulados): {antes - len(contatos)}")
 
     if args.excluir_enviados:
         enviados = carregar_destinos_enviados(args.excluir_enviados)

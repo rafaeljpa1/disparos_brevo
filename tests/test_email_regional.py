@@ -70,6 +70,138 @@ def test_carregar_destinos_enviados(tmp_path):
     assert apenas_um == {"a@b.com"}
 
 
+def test_carregar_destinos_permitidos_csv_com_coluna_email(tmp_path):
+    from disparos_brevo.disparo import carregar_destinos_permitidos
+
+    arquivo = tmp_path / "entregues.csv"
+    arquivo.write_text(
+        "Data,Email\n"
+        "2026-06-01,A@B.com\n"
+        "\n"
+        "2026-06-01,c@d.com\n",
+        encoding="utf-8",
+    )
+    # coluna EMAIL em qualquer caixa; linhas vazias ignoradas; tudo minúsculo
+    assert carregar_destinos_permitidos(arquivo) == {"a@b.com", "c@d.com"}
+
+
+def test_carregar_destinos_permitidos_texto_um_email_por_linha(tmp_path):
+    from disparos_brevo.disparo import carregar_destinos_permitidos
+
+    arquivo = tmp_path / "entregues.txt"
+    arquivo.write_text("A@B.com\n\nc@d.com\n", encoding="utf-8")
+    # sem cabeçalho: a primeira linha também conta como e-mail
+    assert carregar_destinos_permitidos(arquivo) == {"a@b.com", "c@d.com"}
+
+
+def test_carregar_destinos_permitidos_arquivo_faltando(tmp_path):
+    import pytest
+
+    from disparos_brevo.disparo import carregar_destinos_permitidos
+
+    with pytest.raises(FileNotFoundError):
+        carregar_destinos_permitidos(tmp_path / "nao_existe.csv")
+
+
+def test_carregar_destinos_permitidos_csv_excel_ponto_virgula(tmp_path):
+    from disparos_brevo.disparo import carregar_destinos_permitidos
+
+    arquivo = tmp_path / "entregues.csv"
+    # export típico do Excel pt-BR: separador ";" e cabeçalho variante
+    arquivo.write_text(
+        "Data;Email address\n2026-06-01;A@B.com\n2026-06-02;c@d.com\n",
+        encoding="utf-8",
+    )
+    assert carregar_destinos_permitidos(arquivo) == {"a@b.com", "c@d.com"}
+
+
+def test_carregar_destinos_permitidos_arquivo_invalido_erra(tmp_path):
+    import pytest
+
+    from disparos_brevo.disparo import carregar_destinos_permitidos
+
+    # vazio, sem coluna de e-mail no cabeçalho, ou uma pasta: melhor um erro
+    # claro do que filtrar todos os contatos em silêncio
+    vazio = tmp_path / "vazio.csv"
+    vazio.write_text("", encoding="utf-8")
+    with pytest.raises(ValueError):
+        carregar_destinos_permitidos(vazio)
+
+    sem_coluna = tmp_path / "sem_coluna.csv"
+    sem_coluna.write_text("Data,Nome\n2026-06-01,Maria\n", encoding="utf-8")
+    with pytest.raises(ValueError):
+        carregar_destinos_permitidos(sem_coluna)
+
+    with pytest.raises(ValueError):
+        carregar_destinos_permitidos(tmp_path)
+
+
+def test_email_regional_somente_destinos_filtra_em_simulacao(tmp_path, monkeypatch, capsys):
+    from disparos_brevo.cli import main
+
+    # simulação com CSV local não fala com a API; cwd isolado para o relatório
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("BREVO_API_KEY", "chave-de-teste")
+    monkeypatch.setenv("REMETENTE_EMAIL", "envio@exemplo.com")
+
+    contatos = tmp_path / "contatos.csv"
+    contatos.write_text(
+        "EMAIL,ESTADO,NOME_ESCOLA\n"
+        "a@b.com,SP,EMEF A\n"
+        "c@d.com,SP,EMEF C\n"
+        "e@f.com,PR,EMEF E\n",
+        encoding="utf-8",
+    )
+    permitidos = tmp_path / "entregues.csv"
+    permitidos.write_text("EMAIL\nA@B.com\ne@f.com\n", encoding="utf-8")
+
+    templates = tmp_path / "templates"
+    templates.mkdir()
+    for slug in ("sudeste", "sul"):
+        (templates / f"{slug}.html").write_text(
+            "<p>Olá {{nome_escola}} ({{uf}})</p>", encoding="utf-8"
+        )
+
+    codigo = main(
+        [
+            "email-regional",
+            "--contatos", str(contatos),
+            "--templates", str(templates),
+            "--assunto", "PNLD 2027 — {UF}",
+            "--somente-destinos", str(permitidos),
+        ]
+    )
+    saida = capsys.readouterr().out
+    assert codigo == 0
+    # c@d.com está fora do segmento; sobra um contato em cada região
+    assert "Fora do segmento --somente-destinos (pulados): 1" in saida
+    assert "Sudeste: 1 contatos" in saida
+    assert "Sul: 1 contatos" in saida
+    assert "2/2 envios ok, 0 com erro" in saida
+
+
+def test_email_regional_somente_destinos_arquivo_faltando(tmp_path, monkeypatch, capsys):
+    from disparos_brevo.cli import main
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("BREVO_API_KEY", "chave-de-teste")
+    monkeypatch.setenv("REMETENTE_EMAIL", "envio@exemplo.com")
+
+    contatos = tmp_path / "contatos.csv"
+    contatos.write_text("EMAIL,ESTADO\na@b.com,SP\n", encoding="utf-8")
+
+    codigo = main(
+        [
+            "email-regional",
+            "--contatos", str(contatos),
+            "--assunto", "PNLD 2027",
+            "--somente-destinos", str(tmp_path / "nao_existe.csv"),
+        ]
+    )
+    assert codigo == 2
+    assert "--somente-destinos" in capsys.readouterr().err
+
+
 def test_acrescentar_relatorio(tmp_path):
     from disparos_brevo.disparo import (
         ResultadoEnvio,

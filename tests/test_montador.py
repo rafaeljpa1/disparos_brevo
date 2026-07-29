@@ -219,6 +219,54 @@ def test_template_inexistente(tmp_path):
         montar_template(tmp_path, "norte", EDITORA)
 
 
+def test_fallback_nacional_monta_por_regiao(tmp_path):
+    """Campanha nacional: só nacional.html na pasta, montado para cada slug."""
+    (tmp_path / "nacional.html").write_text(TEMPLATE_BASE, encoding="utf-8")
+    for slug, regiao in [("norte", "Norte"), ("centro-oeste", "Centro-Oeste")]:
+        montado = montar_template(
+            tmp_path, slug, EDITORA,
+            link_nacional="https://casadeletras.com.br/pnld-2027/",
+            utm_campanha="pnld2027-email02",
+        )
+        assert montado.regiao == regiao
+        assert f"região {regiao}." in montado.html
+        assert f"utm_content={slug}-nacional" in montado.html
+        assert f"utm_content={slug}-regional" in montado.html
+        # fallback nunca é silencioso: um typo no nome do arquivo regional
+        # não pode trocar o template sem ninguém perceber
+        assert any("nacional.html" in aviso for aviso in montado.avisos)
+
+
+def test_erro_sem_slug_nem_nacional(tmp_path):
+    """Sem <slug>.html nem nacional.html, o erro cita os dois caminhos."""
+    with pytest.raises(FileNotFoundError) as excinfo:
+        montar_template(tmp_path, "sul", EDITORA)
+    assert "sul.html" in str(excinfo.value)
+    assert "nacional.html" in str(excinfo.value)
+
+
+def test_troca_imagens_da_campanha_nacional(tmp_path):
+    """Alts da email02 (capa de Inglês e mosaico) casam com as chaves novas."""
+    html = TEMPLATE_BASE.replace(
+        '<img src="data:image/jpeg;base64,BBBB" alt="Coleção Arte" />',
+        '<img src="data:image/jpeg;base64,BBBB" '
+        'alt="Capa da coleção Mundo Encantado do Saber — Inglês" />\n'
+        '<img src="data:image/jpeg;base64,CCCC" '
+        'alt="Mosaico das capas Mundo Encantado do Saber" />',
+    )
+    (tmp_path / "nacional.html").write_text(html, encoding="utf-8")
+    (tmp_path / "imagens.json").write_text(
+        json.dumps({
+            "capa-ingles": "https://img.brevo.com/capa-ingles.jpg",
+            "mosaico-mundo-encantado": "https://img.brevo.com/mosaico.jpg",
+        }),
+        encoding="utf-8",
+    )
+    montado = montar_template(tmp_path, "sudeste", EDITORA)
+    assert 'src="https://img.brevo.com/capa-ingles.jpg"' in montado.html
+    assert 'src="https://img.brevo.com/mosaico.jpg"' in montado.html
+
+
 def test_templates_reais_do_repositorio():
     """Os 5 templates reais montam sem impedimentos de link/placeholder."""
     reais = Path(__file__).parent.parent / "templates" / "pnld2027" / "email01"

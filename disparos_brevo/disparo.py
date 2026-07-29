@@ -4,6 +4,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 import csv
+import io
 
 from .brevo_client import BrevoAPIError, BrevoClient
 
@@ -195,6 +196,52 @@ def carregar_destinos_enviados(caminho: str | Path) -> set[str]:
                     if destino:
                         enviados.add(destino)
     return enviados
+
+
+def carregar_destinos_permitidos(caminho: str | Path) -> set[str]:
+    """Lê um arquivo de e-mails e retorna o conjunto permitido (minúsculas).
+
+    Aceita um CSV com coluna EMAIL (ex.: segmento de entregues exportado dos
+    logs do Brevo) ou um arquivo texto com um e-mail por linha, sem cabeçalho.
+
+    Usado para restringir uma campanha a um segmento específico, ex.: enviar
+    a próxima etapa só para quem recebeu a campanha anterior.
+    """
+    caminho = Path(caminho)
+    if not caminho.exists():
+        raise FileNotFoundError(f"Arquivo de destinos não encontrado: {caminho}")
+    if caminho.is_dir():
+        raise ValueError(f"Esperado um arquivo de e-mails, não uma pasta: {caminho}")
+    conteudo = caminho.read_text(encoding="utf-8-sig")
+    primeira = conteudo.strip().splitlines()[0] if conteudo.strip() else ""
+    # exports do Excel pt-BR costumam vir separados por ";"
+    delimitador = ";" if primeira.count(";") > primeira.count(",") else ","
+    linhas = [
+        linha
+        for linha in csv.reader(io.StringIO(conteudo), delimiter=delimitador)
+        if linha
+    ]
+    indice = 0  # sem cabeçalho: um e-mail por linha
+    if linhas and not any("@" in coluna for coluna in linhas[0]):
+        # primeira linha sem "@" é cabeçalho; aceita EMAIL, E-mail address...
+        cabecalho = [coluna.strip().upper() for coluna in linhas[0]]
+        candidato = next((i for i, c in enumerate(cabecalho) if "MAIL" in c), None)
+        if candidato is None:
+            raise ValueError(
+                f"Arquivo de destinos sem coluna de e-mail no cabeçalho: {caminho}"
+            )
+        indice = candidato
+        linhas = linhas[1:]
+    permitidos: set[str] = set()
+    for linha in linhas:
+        if indice >= len(linha):
+            continue
+        email = (linha[indice] or "").strip().lower()
+        if "@" in email:
+            permitidos.add(email)
+    if not permitidos:
+        raise ValueError(f"Nenhum e-mail encontrado no arquivo de destinos: {caminho}")
+    return permitidos
 
 
 # -------------------------------------------------------------------relatório
