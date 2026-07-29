@@ -180,6 +180,7 @@ python -m disparos_brevo whatsapp \
 | `--confirmar`            | Envia de verdade (sem ela, apenas simula)                      |
 | `--limite N`             | Envia só para os N primeiros contatos válidos (testes/etapas)  |
 | `--excluir-enviados DIR` | Pula quem já recebeu com sucesso segundo os relatórios         |
+| `--somente-destinos ARQ` | Restringe a um segmento: arquivo com coluna EMAIL ou um e-mail por linha (só no `email-regional`) |
 | `--tag`                  | Tag para rastrear a campanha nas estatísticas do Brevo         |
 
 ### Disparo em etapas
@@ -202,6 +203,69 @@ só quem realmente recebeu é pulado.
 
 Todo disparo gera um relatório CSV em `relatorios/` com o status de cada
 contato (enviado / erro / simulado).
+
+### Organização por campanha
+
+Cada campanha (leva de e-mails) tem sua própria pasta de templates e de
+relatórios, nomeadas pela tag:
+
+```
+templates/pnld2027/email01/      # HTMLs por região + imagens/ + imagens.json
+relatorios/pnld2027-email01/     # relatórios da campanha (unificado + etapas)
+```
+
+A campanha **email01** (concluída em 23/07/2026, 35.078 contatos) está
+arquivada nessas pastas. Já preparadas no formato padrão:
+
+| Campanha | Conteúdo                                  | Origem (arquivos do designer) | Templates                          |
+| -------- | ----------------------------------------- | ----------------------------- | ---------------------------------- |
+| email02  | Coleção de Inglês (nacional)              | `email-05`                    | `nacional.html` (um só para todas as regiões) |
+| email03  | Conheça o Brasil (regional)               | `email-06` a `email-10`       | `norte.html` ... `sul.html`        |
+
+Para uma nova campanha, suba os HTMLs em `templates/pnld2027/<campanha>/`:
+os cinco `<regiao>.html`, ou um único `nacional.html` quando o conteúdo é o
+mesmo para o país inteiro (o montador usa ele como reserva de qualquer
+região, mantendo personalização e UTM por região), mais `imagens.json` com
+as URLs hospedadas. Depois rode:
+
+```bash
+mkdir -p relatorios/pnld2027-email02
+
+python -m disparos_brevo email-regional --lista-id 3 \
+  --templates templates/pnld2027/email02 \
+  --tag pnld2027-email02 \
+  --somente-destinos relatorios/pnld2027-email01/segmentos/entregues.csv \
+  --excluir-enviados relatorios/pnld2027-email02/ \
+  --acumular-em relatorios/pnld2027-email02/relatorio_unificado.csv \
+  --assunto "..." --confirmar
+```
+
+- `--somente-destinos` restringe o disparo a um segmento (arquivo com uma
+  coluna EMAIL ou um e-mail por linha) — ex.: só quem **recebeu** a campanha
+  anterior, para não insistir em endereços que deram bounce.
+- `--excluir-enviados` aponta só para a pasta da **própria** campanha — assim
+  os contatos que receberam a email01 continuam recebendo as próximas.
+
+**Antes de cada disparo**: as URLs em `imagens.json` das campanhas novas
+apontam para o branch `main` do repositório no GitHub — faça commit + push
+das imagens e troque as URLs para o **commit fixo** (como na email01), e
+confira com `curl -I` que respondem 200.
+
+### Segmentos da campanha anterior
+
+`relatorios/pnld2027-email01/segmentos/` guarda os públicos extraídos dos
+logs do Brevo (tag `pnld2027-email01`, gerados em 29/07/2026):
+`entregues.csv`, `abriram.csv`, `clicaram.csv`, `nao_entregues.csv`
+(bounces), `descadastrados.csv`, `marcaram_spam.csv` e `resumo.json` com as
+contagens. São a entrada de `--somente-destinos` nas próximas campanhas
+(descadastrados e reclamações de spam já são pulados automaticamente pelo
+Brevo/CLI; bounces ficam de fora ao usar `entregues.csv`).
+
+Para gerar os segmentos de qualquer campanha (ao encerrá-la):
+
+```bash
+python scripts/extrair_segmentos.py --tag pnld2027-email02 --inicio 2026-08-15
+```
 
 ## Limites do plano atual (Brevo)
 

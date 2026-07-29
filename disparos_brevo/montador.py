@@ -1,7 +1,8 @@
 """Montagem dos templates HTML regionais antes do disparo.
 
 Os templates (ex.: ``templates/pnld2027/email01/<regiao>.html``) chegam com
-placeholders que precisam ser resolvidos:
+placeholders que precisam ser resolvidos. Campanhas nacionais trazem um único
+``nacional.html`` na pasta, usado como fallback para todas as regiões:
 
 - ``{{nome_escola}}`` / ``{{uf}}``  → viram ``{{params.*}}`` do Brevo,
   preenchidos por contato no envio
@@ -29,6 +30,8 @@ LINK_LP_PADRAO = "https://casadeletras.com.br/pnld-2027/"
 # alt da imagem no template → chave em imagens.json ("{slug}" = região)
 _CHAVE_POR_ALT = [
     (re.compile(r"^Capa do livro"), "capa-{slug}"),
+    (re.compile(r"^Capa da coleção Mundo Encantado do Saber — Inglês"), "capa-ingles"),
+    (re.compile(r"^Mosaico das capas"), "mosaico-mundo-encantado"),
     (re.compile(r"^Coleção Arte$"), "mini-arte"),
     (re.compile(r"^Coleção Inglês$"), "mini-ingles"),
     (re.compile(r"^Coleção Produção de Texto$"), "mini-prodtexto"),
@@ -138,6 +141,10 @@ def montar_template(
 ) -> TemplateMontado:
     """Carrega ``<pasta>/<slug>.html`` e resolve todos os placeholders.
 
+    Campanhas nacionais têm um único ``nacional.html`` na pasta: quando não
+    existe ``<slug>.html``, ele é usado como fallback e a montagem segue
+    normalmente por região (nome da região, UTM ``utm_content=<slug>-...``).
+
     Retorna o HTML pronto para envio junto com ``avisos`` (problemas de
     qualidade, ex.: imagens ainda em base64) e ``impedimentos`` (pendências
     que devem bloquear um envio real, ex.: CNPJ ausente no rodapé).
@@ -146,14 +153,28 @@ def montar_template(
     if regiao is None:
         raise ValueError(f"Região desconhecida: {slug_regiao!r}")
     caminho = Path(pasta) / f"{slug_regiao}.html"
+    usou_nacional = False
     if not caminho.exists():
-        raise FileNotFoundError(f"Template não encontrado: {caminho}")
+        # campanha nacional: mesmo HTML para todas as regiões
+        caminho_nacional = Path(pasta) / "nacional.html"
+        if not caminho_nacional.exists():
+            raise FileNotFoundError(
+                f"Template não encontrado: {caminho} (nem o fallback "
+                f"nacional {caminho_nacional})"
+            )
+        caminho = caminho_nacional
+        usou_nacional = True
 
     html = caminho.read_text(encoding="utf-8")
     html = _RE_COMENTARIO.sub("", html)
 
     avisos: list[str] = []
     impedimentos: list[str] = []
+    if usou_nacional:
+        avisos.append(
+            f"{slug_regiao}.html não existe — usando nacional.html "
+            "(esperado em campanha nacional; confira se não é erro de nome)"
+        )
 
     # "{regiao}" nos links vira o slug (ex.: .../pnld-2027-{regiao}/ →
     # .../pnld-2027-norte/), permitindo uma landing page por região
