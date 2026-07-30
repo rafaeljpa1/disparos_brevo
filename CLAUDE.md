@@ -47,7 +47,7 @@ Pipeline de um disparo regional (`email-regional`, o comando principal):
 
 Cada campanha tem `templates/pnld2027/<campanha>/` (cinco `<regiao>.html` ou um `nacional.html`, + `imagens.json`) e `relatorios/pnld2027-<campanha>/`. O README documenta o fluxo completo; pontos que causam erro se ignorados:
 
-- `--somente-destinos` restringe a um segmento (ex.: `relatorios/pnld2027-email01/segmentos/entregues.csv` — só quem recebeu a campanha anterior, evitando bounces).
+- `--somente-destinos` restringe a um segmento (ex.: `relatorios/pnld2027-email01/segmentos/pnld2027-email01_entregues.csv` — só quem recebeu a campanha anterior, evitando bounces).
 - `--excluir-enviados` aponta para a pasta da **própria** campanha (para retomar em etapas), não para as campanhas anteriores.
 - Antes de qualquer envio real: as URLs em `imagens.json` devem apontar para um **commit fixo** do GitHub (não `main`) e responder 200 (`curl -I`).
 - Segmentos em `relatorios/*/segmentos/` são gerados por `scripts/extrair_segmentos.py` ao encerrar cada campanha.

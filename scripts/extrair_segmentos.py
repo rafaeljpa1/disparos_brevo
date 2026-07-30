@@ -2,7 +2,8 @@
 
 Para cada evento (delivered, opened, clicks...), pagina
 ``GET /v3/smtp/statistics/events`` filtrando pela tag da campanha e salva
-CSVs de e-mails únicos (cabeçalho EMAIL) + um ``resumo.json`` com contagens,
+CSVs de e-mails únicos (cabeçalho EMAIL, nomeados ``<tag>_<segmento>.csv``)
++ um ``resumo.json`` com contagens,
 interseções úteis e os créditos restantes do plano.
 
 Os CSVs servem de entrada para ``--somente-destinos`` nas campanhas
@@ -137,12 +138,12 @@ def main() -> int:
     descadastrados = conjuntos["unsubscribed"]
     spam = conjuntos["spam"]
 
-    salva_csv(saida / "entregues.csv", entregues)
-    salva_csv(saida / "abriram.csv", abriram)
-    salva_csv(saida / "clicaram.csv", clicaram)
-    salva_csv(saida / "nao_entregues.csv", nao_entregues)
-    salva_csv(saida / "descadastrados.csv", descadastrados)
-    salva_csv(saida / "marcaram_spam.csv", spam)
+    salva_csv(saida / f"{args.tag}_entregues.csv", entregues)
+    salva_csv(saida / f"{args.tag}_abriram.csv", abriram)
+    salva_csv(saida / f"{args.tag}_clicaram.csv", clicaram)
+    salva_csv(saida / f"{args.tag}_nao_entregues.csv", nao_entregues)
+    salva_csv(saida / f"{args.tag}_descadastrados.csv", descadastrados)
+    salva_csv(saida / f"{args.tag}_marcaram_spam.csv", spam)
 
     creditos = None
     resp = sessao.get(f"{BASE_URL}/account", headers=headers, timeout=60)

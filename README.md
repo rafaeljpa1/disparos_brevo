@@ -234,7 +234,7 @@ mkdir -p relatorios/pnld2027-email02
 python -m disparos_brevo email-regional --lista-id 3 \
   --templates templates/pnld2027/email02 \
   --tag pnld2027-email02 \
-  --somente-destinos relatorios/pnld2027-email01/segmentos/entregues.csv \
+  --somente-destinos relatorios/pnld2027-email01/segmentos/pnld2027-email02_alvo_nao_abriram.csv \
   --excluir-enviados relatorios/pnld2027-email02/ \
   --acumular-em relatorios/pnld2027-email02/relatorio_unificado.csv \
   --assunto "..." --confirmar
@@ -254,12 +254,18 @@ confira com `curl -I` que respondem 200.
 ### Segmentos da campanha anterior
 
 `relatorios/pnld2027-email01/segmentos/` guarda os públicos extraídos dos
-logs do Brevo (tag `pnld2027-email01`, gerados em 29/07/2026):
-`entregues.csv`, `abriram.csv`, `clicaram.csv`, `nao_entregues.csv`
-(bounces), `descadastrados.csv`, `marcaram_spam.csv` e `resumo.json` com as
-contagens. São a entrada de `--somente-destinos` nas próximas campanhas
+logs do Brevo (tag `pnld2027-email01`, gerados em 29/07/2026), nomeados
+`<tag>_<segmento>.csv`: `pnld2027-email01_entregues.csv`,
+`pnld2027-email01_abriram.csv`, `pnld2027-email01_clicaram.csv`,
+`pnld2027-email01_nao_entregues.csv` (bounces),
+`pnld2027-email01_descadastrados.csv`, `pnld2027-email01_marcaram_spam.csv`
+e `resumo.json` com as contagens. Há também os públicos-alvo já montados
+para as próximas campanhas (entregues menos descadastrados/spam, divididos
+por engajamento): `pnld2027-email02_alvo_nao_abriram.csv` (24.637
+não-abridores) e `pnld2027-email03_alvo_engajados.csv` (8.063 que abriram ou
+clicaram). São a entrada de `--somente-destinos` nas próximas campanhas
 (descadastrados e reclamações de spam já são pulados automaticamente pelo
-Brevo/CLI; bounces ficam de fora ao usar `entregues.csv`).
+Brevo/CLI; bounces ficam de fora porque os alvos partem dos entregues).
 
 Para gerar os segmentos de qualquer campanha (ao encerrá-la):
 
